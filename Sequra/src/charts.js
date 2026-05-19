@@ -1,8 +1,8 @@
 // ── charts.js — Chart.js chart builders and plugins ──
 // Depends on: data.js, calc.js, state.js
-// All chart functions receive their data as arguments — no direct DOM reads.
+// SC (scenario constants) defined here — shared with app.js via global scope.
 
-// ── Scenario constants (used by accumulation chart) ──
+// ── Scenario constants ──
 const SC = [
   { key: 'bear', label: 'Bear', color: '#8892A0', cls: 'bear', offset: -2 },
   { key: 'base', label: 'Base', color: '#3B9EFF', cls: 'base', offset:  0 },
@@ -307,6 +307,16 @@ function buildFanChart(params) {
     },
     plugins: [hoverPillPlugin, fanAnnotPlugin],
   });
+}
+
+// ─────────────────────────────────────────────
+// Sequence Explorer helpers
+// ─────────────────────────────────────────────
+
+function clearSeqExplorer() {
+  State.sorrSelectedIdx = -1;
+  const el = document.getElementById('wdSeqExplorer');
+  if (el) el.style.display = 'none';
 }
 
 // ─────────────────────────────────────────────

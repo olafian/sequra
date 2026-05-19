@@ -1,12 +1,6 @@
 // ── app.js — DOM wiring, application logic, event handlers ──
 // Depends on: data.js, calc.js, state.js, charts.js
-
-// ── Scenario constants ──
-const SC = [
-  { key: 'bear', label: 'Bear', color: '#8892A0', cls: 'bear', offset: -2 },
-  { key: 'base', label: 'Base', color: '#3B9EFF', cls: 'base', offset:  0 },
-  { key: 'bull', label: 'Bull', color: '#22D3A0', cls: 'bull', offset: +2 },
-];
+// Note: SC is defined in charts.js (loads before app.js)
 
 // ── Allocation helpers ──
 
@@ -461,12 +455,6 @@ function showSeqExplorer(idx) {
         </div>
       </div>`}
     </div>`;
-}
-
-function clearSeqExplorer() {
-  State.sorrSelectedIdx = -1;
-  const el = document.getElementById('wdSeqExplorer');
-  if (el) el.style.display = 'none';
 }
 
 // ── Main update function ──
