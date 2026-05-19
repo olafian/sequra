@@ -11,6 +11,7 @@ const State = {
   accumChart:    null,
   advAccumChart: null,
   advWdChart:    null,
+  sorrChart:     null,
 
   // SORR sequence explorer
   sorrSelectedIdx: -1,

@@ -83,12 +83,12 @@ function setAccumMode(mode) {
 function addEvent() {
   const lbl = document.getElementById('evtLabel').value.trim();
   const age = parseInt(document.getElementById('evtAge').value);
-  const amt = pm(document.getElementById('evtAmount').value);
+  const amt = pm(document.getElementById('evtAmt').value);
   if (!lbl || !age || !amt) return;
   State.oneTimeEvents.push({ label: lbl, age, amount: amt });
   document.getElementById('evtLabel').value = '';
   document.getElementById('evtAge').value = '';
-  document.getElementById('evtAmount').value = '';
+  document.getElementById('evtAmt').value = '';
   renderEvents(); upd();
 }
 
