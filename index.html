@@ -1,0 +1,2072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sequra — Retirement Sequence Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Clash+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --bg:#080C10;--surface:#0E1419;--surface2:#141C24;
+  --border:rgba(255,255,255,0.07);--text:#E2E8F0;--muted:#4A5568;
+  --bear:#8892A0;--base:#3B9EFF;--bull:#22D3A0;--target:#F472B6;--warn:#FB923C;
+  --mc:#A78BFA;
+  --fd:'Clash Display',sans-serif;--fm:'DM Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--fm);background:var(--bg);color:var(--text);min-height:100vh;padding:24px 20px 48px;
+  background-image:radial-gradient(ellipse 60% 40% at 80% 0%,rgba(59,158,255,.06) 0%,transparent 70%),radial-gradient(ellipse 40% 30% at 0% 100%,rgba(34,211,160,.04) 0%,transparent 70%);}
+h1{font-family:var(--fd);font-size:21px;font-weight:700;letter-spacing:-.02em;color:#fff;}
+.sub{font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;}
+.tabs{display:flex;gap:2px;background:var(--surface);border-radius:10px;padding:3px;margin-bottom:18px;width:fit-content;}
+.tab{padding:5px 15px;border-radius:7px;font-size:11px;font-family:var(--fm);letter-spacing:.04em;text-transform:uppercase;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .2s;}
+.tab.active{background:var(--surface2);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.main-grid{display:grid;grid-template-columns:320px minmax(0,1fr);gap:14px;align-items:start;}
+.left-col{display:flex;flex-direction:column;}
+.right-col{display:flex;flex-direction:column;gap:12px;min-width:0;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:18px;}
+.panel-stretch{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:18px;flex:1;}
+.pt{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:13px;}
+.field{margin-bottom:11px;}.field:last-child{margin-bottom:0;}
+.field label{display:block;font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;}
+.ci{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:6px 9px;font-size:13px;color:var(--text);font-family:var(--fm);outline:none;transition:border-color .2s;}
+.ci:focus{border-color:rgba(59,158,255,.4);}
+input[type=range]{width:100%;accent-color:var(--base);cursor:pointer;background:transparent;padding:0;border:none;margin-top:6px;height:3px;}
+.divider{height:1px;background:var(--border);margin:13px 0;}
+.tr{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+.tl{font-size:10px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;}
+.tog{position:relative;width:34px;height:18px;cursor:pointer;}
+.tog input{opacity:0;width:0;height:0;position:absolute;}
+.tog-track{position:absolute;inset:0;background:#1a2332;border-radius:9px;transition:.2s;border:1px solid var(--border);}
+.tog input:checked+.tog-track{background:rgba(59,158,255,.3);border-color:rgba(59,158,255,.5);}
+.tog-thumb{position:absolute;width:12px;height:12px;background:var(--muted);border-radius:50%;top:2px;left:2px;transition:.2s;}
+.tog input:checked~.tog-thumb{left:18px;background:var(--base);}
+.slider-row{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:3px;}
+/* TIMELINE */
+.timeline-wrap{position:relative;height:48px;margin:6px 0 14px;}
+.timeline-track{position:absolute;top:22px;left:0;right:0;height:4px;background:var(--surface2);border-radius:2px;}
+.timeline-fill{position:absolute;top:0;height:100%;border-radius:2px;background:linear-gradient(90deg,var(--base),var(--bull));pointer-events:none;}
+.tl-handle{position:absolute;top:-8px;width:20px;height:20px;border-radius:50%;border:2px solid;cursor:grab;transform:translateX(-50%);z-index:2;transition:box-shadow .15s;}
+.tl-handle:active{cursor:grabbing;box-shadow:0 0 0 4px rgba(255,255,255,.08);}
+.tl-label{position:absolute;top:28px;transform:translateX(-50%);font-size:8px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}
+/* RATE CARDS */
+.rate-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;}
+.rc{border-radius:12px;padding:14px 16px;border:1px solid var(--border);position:relative;overflow:hidden;}
+.rc::before{content:'';position:absolute;inset:0;opacity:.06;pointer-events:none;}
+.rc.bear::before{background:var(--bear);}.rc.base::before{background:var(--base);}.rc.bull::before{background:var(--bull);}
+.rc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.rc-label{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
+.rc-pct{font-family:var(--fd);font-size:22px;font-weight:700;line-height:1;}
+.rc-vals{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;}
+.rc-val{background:rgba(0,0,0,.25);border-radius:8px;padding:8px 10px;}
+.rc-age{font-size:9px;text-transform:uppercase;letter-spacing:.06em;opacity:.55;margin-bottom:3px;}
+.rc-amt{font-size:16px;font-weight:600;letter-spacing:-.01em;}
+/* CHART */
+.chart-panel{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:16px;}
+.chart-wrap{position:relative;height:290px;margin-bottom:12px;}
+/* STAT ROW */
+.stat-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.stat{background:var(--surface2);border-radius:8px;padding:8px 12px;min-width:76px;}
+.stat-label{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:2px;}
+.stat-val{font-family:var(--fd);font-size:16px;font-weight:600;letter-spacing:-.02em;}
+.stat-sub{font-size:9px;color:var(--muted);margin-top:1px;}
+.sc-sel{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--fm);font-size:11px;padding:4px 8px;outline:none;cursor:pointer;}
+/* BREAKEVEN */
+.be-row{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:10px;}
+.be-badge{display:flex;align-items:center;gap:5px;background:var(--surface2);border-radius:6px;padding:4px 8px;font-size:10px;}
+.be-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+/* LEGEND */
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;}
+.li{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);}
+.ll{display:inline-flex;align-items:center;gap:2px;}
+.ls{width:13px;height:2px;border-radius:1px;display:inline-block;}
+.ld{width:13px;display:inline-block;border-top:1.5px dashed;}
+.explainer{font-size:10px;color:var(--muted);margin-top:8px;line-height:1.6;}
+/* WITHDRAWAL */
+.wd-hero{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;}
+.wd-card{border-radius:11px;padding:14px 15px;border:1px solid var(--border);position:relative;overflow:hidden;}
+.wd-card::before{content:'';position:absolute;inset:0;opacity:.05;pointer-events:none;}
+.wd-card.bear::before{background:var(--bear);}.wd-card.base::before{background:var(--base);}.wd-card.bull::before{background:var(--bull);}
+.wd-card-label{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;}
+.wd-verdict{font-family:var(--fd);font-size:22px;font-weight:700;line-height:1;margin-bottom:3px;}
+.wd-verdict-sub{font-size:10px;opacity:.6;margin-bottom:10px;}
+.wd-detail{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.wd-detail-item{background:rgba(0,0,0,.2);border-radius:6px;padding:5px 7px;}
+.wd-detail-label{font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:1px;}
+.wd-detail-val{font-size:11px;font-weight:500;}
+.spend-control{background:var(--surface2);border-radius:11px;padding:14px 16px;margin-bottom:14px;}
+.spend-label{font-size:11px;color:var(--muted);margin-bottom:4px;}
+.spend-val{font-family:var(--fd);font-size:26px;font-weight:700;color:var(--text);letter-spacing:-.02em;margin-bottom:8px;}
+.spend-val span{font-size:13px;font-weight:400;color:var(--muted);}
+.tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);font-size:9px;color:var(--muted);cursor:help;vertical-align:middle;margin-left:4px;flex-shrink:0;}
+.tip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a2332;border:1px solid rgba(255,255,255,0.12);border-radius:7px;padding:7px 10px;font-size:10px;color:var(--text);line-height:1.5;white-space:nowrap;z-index:99;pointer-events:none;font-family:var(--fm);font-weight:400;letter-spacing:0;text-transform:none;max-width:220px;white-space:normal;width:220px;box-shadow:0 4px 16px rgba(0,0,0,0.4);}
+.tip:hover::before{content:'';position:absolute;bottom:calc(100% + 1px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1a2332;z-index:100;}
+@keyframes sorrPulse{0%,100%{opacity:1;r:4px;}50%{opacity:.3;r:8px;}}
+.safe-yes{background:rgba(34,211,160,.12);color:var(--bull);border:1px solid rgba(34,211,160,.2);}
+.safe-no{background:rgba(251,146,60,.12);color:var(--warn);border:1px solid rgba(251,146,60,.2);}
+.runway-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.runway-bar{flex:1;height:8px;border-radius:4px;background:var(--surface2);overflow:hidden;}
+.runway-fill{height:100%;border-radius:4px;transition:width .25s;}
+/* ONE-TIME EVENTS */
+.event-list{margin-bottom:8px;}
+.event-item{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:11px;}
+.event-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;opacity:.6;}
+.event-del:hover{opacity:1;color:#F87171;}
+.event-add{display:grid;grid-template-columns:1fr 80px 24px;gap:5px;align-items:center;}
+.event-add input{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:11px;color:var(--text);font-family:var(--fm);outline:none;width:100%;}
+.event-add input:focus{border-color:rgba(59,158,255,.4);}
+.event-add-btn{background:rgba(59,158,255,.1);border:1px solid rgba(59,158,255,.25);border-radius:6px;color:var(--base);font-size:14px;cursor:pointer;padding:3px 0;text-align:center;}
+.event-add-btn:hover{background:rgba(59,158,255,.2);}
+.mode-toggle{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.mode-switch{display:flex;gap:2px;background:var(--surface2);border-radius:7px;padding:2px;}
+.mode-btn{padding:4px 12px;border-radius:5px;font-size:10px;font-family:var(--fm);letter-spacing:.04em;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;}
+.mode-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.4);}
+.hist-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0;}
+.hist-cell{background:var(--surface2);border-radius:8px;padding:9px 12px;}
+.hist-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:3px;}
+.hist-val{font-family:var(--fd);font-size:16px;font-weight:600;}
+</style>
+</head>
+<body>
+<!-- Mobile notice -->
+<div id="mobileNotice" style="position:fixed;inset:0;background:var(--bg);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;">
+  <div style="font-size:32px;margin-bottom:16px;">🖥️</div>
+  <div style="font-family:var(--fd);font-size:22px;font-weight:700;color:var(--text);margin-bottom:8px;">Best on desktop</div>
+  <div style="font-size:13px;color:var(--muted);line-height:1.6;max-width:280px;">Sequra uses interactive charts and multi-panel layouts that work best on a larger screen. Open on your laptop or desktop for the full experience.</div>
+  <button onclick="document.getElementById('mobileNotice').style.display='none'" style="margin-top:24px;padding:10px 24px;background:rgba(29,158,117,0.15);border:1px solid rgba(29,158,117,0.3);border-radius:8px;color:#1D9E75;font-family:var(--fm);font-size:12px;cursor:pointer;">Continue anyway</button>
+</div>
+<script>
+  if(window.innerWidth < 768) document.getElementById('mobileNotice').style.display='flex';
+</script>
+<div class="header">
+  <div>
+    <h1>Sequra</h1>
+    <span class="sub">Retirement Sequence Simulator</span>
+  </div>
+  <button id="shareBtn" onclick="shareScenario()" style="display:flex;align-items:center;gap:6px;background:rgba(29,158,117,0.1);border:1px solid rgba(29,158,117,0.25);border-radius:8px;padding:7px 14px;color:#1D9E75;font-family:var(--fm);font-size:11px;font-weight:500;cursor:pointer;letter-spacing:.04em;transition:background .15s;" onmouseover="this.style.background='rgba(29,158,117,0.18)'" onmouseout="this.style.background='rgba(29,158,117,0.1)'">
+    🔗 Share scenario
+  </button>
+</div>
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('accumulation')">
+    Accumulation
+    <span style="display:block;font-size:9px;font-weight:400;opacity:.6;letter-spacing:.02em;margin-top:1px;">build your nest egg</span>
+  </button>
+  <button class="tab" onclick="switchTab('withdrawal')">
+    Will My Money Last?
+    <span style="display:block;font-size:9px;font-weight:400;opacity:.6;letter-spacing:.02em;margin-top:1px;">stress-test retirement</span>
+  </button>
+</div>
+<div class="main-grid">
+  <!-- LEFT -->
+  <div class="left-col">
+    <!-- SHARED: always visible -->
+    <div class="panel">
+      <div class="pt">Portfolio</div>
+      <div class="field"><label>Starting Portfolio</label><input class="ci" type="text" id="startVal" value="$1,000,000" onblur="fmt(this)" oninput="upd()"></div>
+      <div id="fieldContrib" class="field"><label>Annual Contribution</label><input class="ci" type="text" id="contrib" value="$25,000" onblur="fmt(this)" oninput="upd()"></div>
+      <div class="divider" id="divContrib"></div>
+      <div class="field">
+        <label>Real Return Rate &nbsp;<span id="lblRate" style="color:var(--base);"></span><span class="tip" data-tip="Your expected annual investment return after inflation. Historically US equities averaged ~7.7% real. 7% is a reasonable base case.">?</span></label>
+        <input type="range" id="baseRate" min="1" max="12" step="0.5" value="7" oninput="upd()">
+        <div id="rateSliderHint" class="slider-row"><span>1%</span><span>after inflation · scenarios ±2%</span><span>12%</span></div>
+      </div>
+      <div class="field" id="fieldTarget">
+        <label>Retirement Target &nbsp;<span id="lblT" style="color:var(--target);"></span></label>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input class="ci" type="text" id="targetInput" placeholder="auto (25× spend)" onblur="fmt(this);_targetManual=!!pm(this.value);upd()" oninput="upd()" style="flex:1;">
+          <button onclick="_targetManual=false;document.getElementById('targetInput').value='';upd()" title="Reset to 25× spend" style="font-size:11px;padding:4px 9px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);font-family:var(--fm);cursor:pointer;">25×</button>
+        </div>
+        <div style="font-size:9px;color:var(--muted);margin-top:4px;" id="targetHint">Auto-set to 25× retirement spend</div>
+      </div>
+      <div class="divider"></div>
+      <div class="pt" style="margin-bottom:10px;">Life Stages</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;">
+        <div class="field" style="margin-bottom:0;"><label>Current Age</label><input class="ci" type="number" id="ageNow" value="38" min="18" max="60" oninput="upd()"></div>
+        <div class="field" style="margin-bottom:0;"><label>Stop Contributing</label><input class="ci" type="number" id="ageCoast" value="55" min="20" max="80" oninput="upd()"></div>
+        <div class="field" style="margin-bottom:0;"><label>Retire At</label><input class="ci" type="number" id="ageRetire" value="55" min="30" max="80" oninput="upd()"></div>
+        <div class="field" style="margin-bottom:0;"><label>Plan Until</label><input class="ci" type="number" id="ageEnd" value="85" min="60" max="100" oninput="upd()"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="spend-control">
+        <div class="spend-label">Retirement Spend (pre-tax) &nbsp;<span id="lblSpend" style="font-size:10px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;"></span></div>
+        <div class="spend-val" id="spendDisp">— <span>/yr</span></div>
+        <input type="range" id="spendSlider" min="20000" max="300000" step="5000" value="80000" oninput="upd()">
+        <div class="slider-row"><span>$20k</span><span>$300k</span></div>
+      </div>
+      <div class="divider"></div>
+      <div id="rowMC" class="tr"><span class="tl">Monte Carlo (500 runs)</span><label class="tog"><input type="checkbox" id="mcToggle" onchange="upd()"><div class="tog-track"></div><div class="tog-thumb"></div></label></div>
+      <div class="tr" style="margin-bottom:0;"><span class="tl">Annual Fund Fees &nbsp;<span id="lblFees" style="color:var(--warn);font-size:10px;"></span></span><label class="tog"><input type="checkbox" id="feesToggle" onchange="upd()"><div class="tog-track"></div><div class="tog-thumb"></div></label></div>
+      <div id="feesPanel" style="display:none;margin-top:8px;">
+        <input type="range" id="feesSlider" min="0" max="1" step="0.05" value="0.1" oninput="upd()">
+        <div class="slider-row"><span>0%</span><span>expense ratio</span><span>1%</span></div>
+      </div>
+    </div>
+
+    <!-- WITHDRAWAL ONLY -->
+    <div class="panel" id="wdrawOnlyPanel" style="display:none;flex:1;margin-top:12px;">
+      <div class="pt">Withdrawal Settings</div>
+      <div class="field">
+        <label>Starting Portfolio <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;">(override)</span></label>
+        <input class="ci" type="text" id="wdPortOverride" placeholder="Leave blank to use accumulation result" onblur="fmt(this)" oninput="upd()">
+        <div style="font-size:9px;color:var(--muted);margin-top:4px;">Blank = uses your return slider · retirement portfolio</div>
+      </div>
+      <div class="divider"></div>
+      <!-- Allocation expandable -->
+      <div id="allocTrigger" onclick="toggleAlloc()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:6px 0;margin-bottom:2px;">
+        <span style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Retirement Allocation<span class="tip" data-tip="How your portfolio is split between stocks, bonds, and cash during retirement. More bonds = less volatility but lower long-term growth.">?</span></span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span id="allocSummary" style="font-size:10px;color:var(--text);display:flex;align-items:center;gap:4px;">
+            <span style="color:#1D9E75;">S</span><span>100</span>
+            <span style="color:#3B9EFF;margin-left:3px;">B</span><span>0</span>
+            <span style="color:#4A5568;margin-left:3px;">C</span><span>0</span>
+          </span>
+          <span id="allocChevron" style="font-size:11px;color:var(--muted);transition:transform .2s;">⌄</span>
+        </div>
+      </div>
+      <div id="allocPanel" style="display:none;background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:10px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <span style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#1D9E75;flex-shrink:0;"></span>Stocks</span>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <input type="number" id="allocS" value="100" min="0" max="100" oninput="clampAlloc('allocS');updAlloc()" style="width:100%;text-align:right;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:13px;color:var(--text);font-family:var(--fm);outline:none;">
+              <span style="font-size:11px;color:var(--muted);">%</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <span style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#3B9EFF;flex-shrink:0;"></span>Bonds</span>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <input type="number" id="allocB" value="0" min="0" max="100" oninput="clampAlloc('allocB');updAlloc()" style="width:100%;text-align:right;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:13px;color:var(--text);font-family:var(--fm);outline:none;">
+              <span style="font-size:11px;color:var(--muted);">%</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <span style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#4A5568;flex-shrink:0;"></span>Cash</span>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <input type="number" id="allocC" value="0" min="0" max="100" oninput="clampAlloc('allocC');updAlloc()" style="width:100%;text-align:right;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:13px;color:var(--text);font-family:var(--fm);outline:none;">
+              <span style="font-size:11px;color:var(--muted);">%</span>
+            </div>
+          </div>
+        </div>
+        <!-- Stacked bar -->
+        <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:6px;">
+          <div id="allocBarS" style="background:#1D9E75;width:100%;transition:width .15s;"></div>
+          <div id="allocBarB" style="background:#3B9EFF;width:0%;transition:width .15s;"></div>
+          <div id="allocBarC" style="background:#4A5568;opacity:.5;width:0%;transition:width .15s;"></div>
+        </div>
+        <!-- Legend -->
+        <div style="display:flex;gap:10px;margin-bottom:8px;">
+          <span style="font-size:9px;color:var(--muted);display:flex;align-items:center;gap:3px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#1D9E75;"></span>Stocks</span>
+          <span style="font-size:9px;color:var(--muted);display:flex;align-items:center;gap:3px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3B9EFF;"></span>Bonds</span>
+          <span style="font-size:9px;color:var(--muted);display:flex;align-items:center;gap:3px;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#4A5568;"></span>Cash</span>
+        </div>
+        <!-- Total + expected return -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:10px;color:var(--muted);">Total</span>
+          <span id="allocTotal" style="font-size:10px;font-weight:500;color:var(--bull);">100% ✓</span>
+        </div>
+        <div style="background:var(--bg);border-radius:7px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;" id="allocReturnCard">
+          <div>
+            <div style="font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Expected real return</div>
+            <div style="font-size:9px;color:var(--muted);margin-top:2px;">Shiller historical avg</div>
+          </div>
+          <div id="allocExpReturn" style="font-family:var(--fd);font-size:18px;font-weight:700;color:var(--bull);">7.7%</div>
+        </div>
+        <!-- Rebalance + reset -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="rebalToggle" onchange="upd()" style="accent-color:#1D9E75;width:14px;height:14px;cursor:pointer;">
+            <span style="font-size:10px;color:var(--muted);">Rebalance annually</span>
+          </div>
+          <button onclick="resetAlloc()" title="Reset to 100% stocks" style="font-size:13px;line-height:1;padding:3px 7px;border-radius:5px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);cursor:pointer;">↺</button>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="field">
+        <label>Retirement Tax Rate &nbsp;<span id="lblTax" style="color:var(--warn);"></span></label>
+        <input type="range" id="taxRate" min="0" max="40" step="1" value="0" oninput="upd()">
+        <div class="slider-row"><span>0%</span><span>40%</span></div>
+      </div>
+      <div class="divider"></div>
+      <div class="tr">
+        <span class="tl">Social Security</span>
+        <label class="tog"><input type="checkbox" id="ssToggle" onchange="upd()"><div class="tog-track"></div><div class="tog-thumb"></div></label>
+      </div>
+      <div id="ssPanel" style="display:none;">
+        <div class="field"><label>SS Annual Income</label><input class="ci" type="text" id="ssIncome" placeholder="e.g. $24,000" onblur="fmt(this)" oninput="upd()"></div>
+        <div class="field"><label>SS Starts at Age</label><input class="ci" type="number" id="ssAge" placeholder="67" min="62" max="70" oninput="upd()"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="pt" style="margin-bottom:8px;">One-Time Events</div>
+      <div class="event-list" id="eventList"></div>
+      <div class="event-add">
+        <input type="text" id="evtLabel" placeholder="e.g. Porsche">
+        <input type="number" id="evtAge" placeholder="Age" min="40" max="100">
+        <button class="event-add-btn" onclick="addEvent()">+</button>
+      </div>
+      <div style="margin-top:5px;">
+        <input type="text" id="evtAmt" placeholder="Amount e.g. $150,000" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:11px;color:var(--text);font-family:var(--fm);outline:none;" onblur="fmtEvt(this)">
+      </div>
+      <div style="font-size:9px;color:var(--muted);margin-top:6px;line-height:1.5;">Positive = expense. Negative = windfall.</div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-col">
+    <div class="rate-cards" id="rateRow"></div>
+    <div id="accumChartPanel" class="panel-stretch">
+      <!-- Accumulation intro -->
+      <div id="accumIntro" style="display:flex;align-items:flex-start;gap:10px;background:rgba(59,158,255,0.06);border:1px solid rgba(59,158,255,0.15);border-radius:9px;padding:10px 14px;margin-bottom:14px;">
+        <span style="font-size:16px;line-height:1;margin-top:1px;">📈</span>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:#3B9EFF;margin-bottom:2px;">How much will I have when I retire?</div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.6;">Move the <strong style="color:#3B9EFF;">return rate slider</strong> to adjust your expected annual growth. The three lines show bear / base / bull scenarios. Switch to <strong style="color:#3B9EFF;">Advanced</strong> to see every historical starting year since 1871.</div>
+        </div>
+      </div>
+      <div class="mode-toggle">
+        <div class="mode-switch">
+          <button class="mode-btn active" id="accumSimpleBtn" onclick="setAccumMode('simple')">Simple</button>
+          <button class="mode-btn" id="accumAdvBtn" onclick="setAccumMode('advanced')">Advanced</button>
+        </div>
+        <span style="font-size:9px;color:var(--muted);" id="accumModeHint">3 return scenarios</span>
+      </div>
+      <div id="accumSimplePanel">
+        <div id="goalBar" style="margin-bottom:14px;"></div>
+        <div class="be-row" id="beRow" style="margin-bottom:14px;"></div>
+        <div class="chart-wrap"><canvas id="gc"></canvas></div>
+        <div class="legend" id="legend"></div>
+        <div class="explainer" id="explainer"></div>
+      </div>
+      <div id="accumAdvPanel" style="display:none;">
+        <div style="background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:8px;padding:9px 13px;margin-bottom:12px;font-size:10px;line-height:1.6;color:var(--muted);">
+          <span style="color:#A78BFA;font-weight:600;">Historical simulation</span> — shows your accumulation outcome if you had started investing in each historical year, using actual Shiller real returns (1871–2023, avg ~7.7%/yr). <span style="color:var(--text);">Return slider has no effect here.</span> All values in today's dollars.
+        </div>
+        <div class="hist-grid" id="accumHistStats"></div>
+        <div class="chart-wrap" style="height:270px;"><canvas id="gcAdv"></canvas></div>
+        <div id="accumHistDetail" style="margin-top:10px;"></div>
+        <div class="explainer" style="margin-top:8px;">Based on <strong>Shiller US equity data 1871–2023</strong> · Each bar = one historical starting year · Real inflation-adjusted returns</div>
+      </div>
+    </div>
+    <div id="wdrawRight" style="display:none;flex-direction:column;gap:12px;">
+      <!-- Withdrawal intro -->
+      <div style="display:flex;align-items:flex-start;gap:10px;background:rgba(29,158,117,0.06);border:1px solid rgba(29,158,117,0.18);border-radius:9px;padding:10px 14px;">
+        <span style="font-size:16px;line-height:1;margin-top:1px;">🏦</span>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:#1D9E75;margin-bottom:2px;">Will my money last through retirement?</div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.6;">This runs your plan through <strong style="color:#1D9E75;">every historical market sequence since 1871</strong> — including the Great Depression, stagflation, and 2008. Your <strong style="color:#1D9E75;">return rate slider</strong> determines how much you arrive at retirement with. You can also <strong style="color:#1D9E75;">enter your own portfolio number</strong> in the Starting Portfolio override on the left.</div>
+        </div>
+      </div>
+      <div id="wdHero"></div>
+      <div id="wdSeqExplorer" style="display:none;"></div>
+      <div class="panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Portfolio through retirement · today's $</div>
+          <div style="font-size:9px;color:var(--muted);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:5px;padding:2px 8px;">each band = range of historical outcomes</div>
+        </div>
+        <div style="position:relative;height:380px;"><canvas id="gcWdAdv" role="img" aria-label="Fan chart showing historical withdrawal simulation outcomes"></canvas></div>
+        <div id="wdHistDetail" style="margin-top:8px;"></div>
+      </div>
+      <div class="panel">
+        <div id="sorrTitle"></div>
+        <div style="position:relative;height:200px;margin-bottom:6px;"><canvas id="gcSorr"></canvas></div>
+        <div style="font-size:9px;color:var(--muted);margin-top:4px;">💡 Click any bar to explore that specific historical sequence in detail</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Constants ──
+const SC = [
+  {key:'bear', label:'Bear', color:'#8892A0', cls:'bear', offset:-2},
+  {key:'base', label:'Base', color:'#3B9EFF', cls:'base', offset:0},
+  {key:'bull', label:'Bull', color:'#22D3A0', cls:'bull', offset:2},
+];
+const BEAR_SD = 12; // standard deviation for MC (annual equity vol ~12%)
+
+// ── State ──
+let accumChart = null;
+let currentTab = 'accumulation';
+let oneTimeEvents = [];
+let accumMode = 'simple';
+let advAccumChart = null, advWdChart = null;
+
+// ── Shiller real total returns 1871–2023 (inflation-adjusted) ──
+// Derived from Shiller nominal returns ÷ CPI. Avg ~7.7% real. All values in today's dollars.
+const SHILLER=[
+  0.1764,-0.0108,0.0545,-0.0227,0.0621,0.1314,0.0829,0.0445,0.0341,
+  0.2203,-0.0139,0.0793,0.1310,-0.0043,0.2698,0.1478,0.0470,-0.0583,0.0764,
+  -0.1424,0.1745,-0.0190,-0.0724,-0.0149,0.0178,-0.0184,0.2148,0.1274,0.1233,
+  0.0161,0.1678,-0.0198,0.2391,0.1491,0.2559,-0.0072,-0.2166,0.0093,0.1108,
+  -0.1601,0.0598,0.0831,-0.1138,-0.0581,0.2765,-0.0946,0.0343,-0.0195,-0.2287,
+  -0.2729,0.3840,0.3351,0.2314,-0.0022,0.3068,0.1024,0.3787,0.3634,-0.0854,
+  -0.2712,-0.3790,0.0171,0.6209,-0.0511,0.4410,0.3085,-0.3631,0.2938,-0.0451,
+  -0.1029,-0.1903,0.0990,0.2171,0.1711,0.3352,-0.2230,-0.0323,-0.0221,0.1843,
+  0.2959,0.1451,0.1616,-0.0028,0.5180,0.3313,0.0585,-0.1363,0.3946,0.1118,
+  -0.0453,0.2563,-0.0981,0.2122,0.1499,0.1068,-0.1259,0.2049,0.0658,-0.1319,
+  -0.0160,0.0949,0.1521,-0.1964,-0.3376,0.2576,0.1705,-0.1285,-0.0097,0.0642,
+  0.1667,-0.1379,0.1432,0.1871,0.0189,0.2757,0.1626,0.0157,0.1202,0.2566,
+  -0.0806,0.2521,0.0449,0.0687,-0.0125,0.3383,0.1938,0.3036,0.2656,0.1843,
+  -0.1209,-0.1429,-0.2320,0.2548,0.0783,0.0146,0.1220,0.0261,-0.3931,0.2697,
+  0.1325,-0.0106,0.1361,0.3043,0.1190,0.0128,0.1052,0.1932,-0.0662,0.2853,
+  0.1700,0.2310,-0.2418,0.2143
+];
+const SY=1871;
+
+// Shiller 10-yr Treasury real returns 1871-2023
+const SHILLER_BONDS=[
+  0.0958,0.0845,0.05,0.0938,0.0735,0.0736,0.049,0.0716,0.0274,
+  0.038,0.0603,0.0634,0.0655,0.0156,0.038,0.0645,0.0635,0.038,
+  0.0645,0.0127,0.036,0.0137,0.0614,0.0615,0.038,0.037,0.036,
+  0.0137,0.0614,0.0117,0.036,0.0147,0.0167,0.0157,0.0147,0.0157,
+  0.0177,0.001,0.001,-0.0029,0.043,0.0146,0.0246,0.0317,0.0307,
+  -0.0289,-0.1107,-0.1169,-0.0868,-0.0815,0.1837,0.1119,0.0652,0.0492,
+  0.0186,0.0297,0.0603,0.0268,0.0401,0.0932,0.2044,0.2464,0.0759,
+  0.0745,0.0234,0.0611,-0.0185,0.054,0.074,0.0516,-0.0328,-0.0532,
+  -0.0078,0.0029,0.0127,-0.1538,-0.1037,-0.0361,0.0608,-0.0109,-0.0686,
+  -0.0304,0.0443,0.0657,0.003,-0.0394,-0.0484,0.035,-0.0377,0.0993,
+  -0.001,-0.0316,0.0661,0.0227,-0.0118,0.0068,-0.0185,-0.0432,-0.1025,
+  0.0605,0.091,0.0223,-0.0348,-0.1315,0,-0.0567,-0.0667,-0.0809,
+  -0.1123,-0.1533,-0.0762,0.3249,0.0465,0.1055,0.2645,0.2218,-0.0068,
+  0.0538,0.1269,0.0142,0.144,0.0505,0.1427,-0.1043,0.1984,-0.0155,
+  0.1036,0.1299,0.0088,0.1731,0.0078,0.1378,-0.0127,0.0594,-0.0029,
+  -0.03,0.071,0.2129,-0.1155,0.0669,0.124,0.002,0.001,0.2057,
+  0.013,-0.0158,0.0059,-0.0264,0.0674,0.1057,-0.0793,-0.238,-0.0827
+];
+// Cash real return: fixed 0.5% (T-bill historical avg)
+const CASH_REAL = 0.005;
+// Historical averages for expected return calculation
+const AVG_EQUITY = 0.0773, AVG_BONDS = 0.0287, AVG_CASH = 0.005;
+
+// Blended return for year y given allocation
+function blendReturn(y, stkPct, bndPct, cshPct){
+  return stkPct*SHILLER[y] + bndPct*SHILLER_BONDS[y] + cshPct*CASH_REAL;
+}
+// Get current allocation (validated, only when total=100)
+function getAlloc(){
+  const s=parseInt(document.getElementById('allocS').value)||0;
+  const b=parseInt(document.getElementById('allocB').value)||0;
+  const c=parseInt(document.getElementById('allocC').value)||0;
+  return{s:s/100, b:b/100, c:c/100, total:s+b+c, valid:s+b+c===100};
+}
+
+function toggleAlloc(){
+  const panel=document.getElementById('allocPanel');
+  const chevron=document.getElementById('allocChevron');
+  const open=panel.style.display==='none';
+  panel.style.display=open?'':'none';
+  chevron.style.transform=open?'rotate(180deg)':'';
+}
+
+function clampAlloc(id){
+  const el=document.getElementById(id);
+  let v=parseInt(el.value)||0;
+  v=Math.max(0,Math.min(100,v));
+  el.value=v;
+}
+function resetAlloc(){
+  document.getElementById('allocS').value=100;
+  document.getElementById('allocB').value=0;
+  document.getElementById('allocC').value=0;
+  updAlloc();
+}
+function updAlloc(){
+  const s=Math.max(0,parseInt(document.getElementById('allocS').value)||0);
+  const b=Math.max(0,parseInt(document.getElementById('allocB').value)||0);
+  const c=Math.max(0,parseInt(document.getElementById('allocC').value)||0);
+  const total=s+b+c;
+  const ok=total===100;
+  // Stacked bar
+  const sf=ok?s:s/Math.max(total,1)*100;
+  const bf=ok?b:b/Math.max(total,1)*100;
+  const cf=ok?c:c/Math.max(total,1)*100;
+  document.getElementById('allocBarS').style.width=sf+'%';
+  document.getElementById('allocBarB').style.width=bf+'%';
+  document.getElementById('allocBarC').style.width=cf+'%';
+  // Total label
+  const totalEl=document.getElementById('allocTotal');
+  totalEl.textContent=total+'%'+(ok?' ✓':' — must equal 100');
+  totalEl.style.color=ok?'var(--bull)':'#E24B4A';
+  // Summary
+  document.getElementById('allocSummary').innerHTML=
+    `<span style="color:#1D9E75;">S</span><span>${s}</span>`+
+    `<span style="color:#3B9EFF;margin-left:3px;">B</span><span>${b}</span>`+
+    `<span style="color:#4A5568;margin-left:3px;">C</span><span>${c}</span>`;
+  // Expected return
+  const expEl=document.getElementById('allocExpReturn');
+  const card=document.getElementById('allocReturnCard');
+  if(ok){
+    const exp=((s/100)*AVG_EQUITY+(b/100)*AVG_BONDS+(c/100)*AVG_CASH)*100;
+    expEl.textContent=exp.toFixed(1)+'%';
+    expEl.style.color='var(--bull)';
+    card.style.opacity='1';
+  } else {
+    expEl.textContent='—';
+    card.style.opacity='.4';
+  }
+  if(ok) upd();
+}
+
+function setAccumMode(mode){
+  accumMode=mode;
+  document.getElementById('accumSimpleBtn').classList.toggle('active',mode==='simple');
+  document.getElementById('accumAdvBtn').classList.toggle('active',mode==='advanced');
+  document.getElementById('accumSimplePanel').style.display=mode==='simple'?'':'none';
+  document.getElementById('accumAdvPanel').style.display=mode==='advanced'?'':'none';
+  document.getElementById('accumModeHint').textContent=mode==='simple'?'3 return scenarios':'Shiller historical 1871–2023';
+  document.getElementById('rateRow').style.display=mode==='advanced'?'none':'';
+  upd();
+}
+function histAccum(startVal,contrib,contribUntil,startAge,years,feesRate){
+  const results=[], max=SHILLER.length-years;
+  for(let s=0;s<=max;s++){
+    let v=startVal;
+    for(let y=0;y<years;y++) v=v*(1+SHILLER[s+y]-feesRate)+(startAge+y<contribUntil?contrib:0);
+    results.push({yr:SY+s,val:Math.round(v)});
+  }
+  const sorted=[...results].map(r=>r.val).sort((a,b)=>a-b);
+  return{results,
+    p10:sorted[Math.floor(sorted.length*.10)],
+    p25:sorted[Math.floor(sorted.length*.25)],
+    p50:sorted[Math.floor(sorted.length*.50)],
+    p75:sorted[Math.floor(sorted.length*.75)],
+    p90:sorted[Math.floor(sorted.length*.90)],
+    best:results.reduce((a,b)=>a.val>b.val?a:b),
+    worst:results.reduce((a,b)=>a.val<b.val?a:b)};
+}
+
+function histWithdraw(portAtRetire,spend,retireAge,planUntil,events,ssIncome,ssAge,feesRate,stkPct,bndPct,cshPct,rebal){
+  const withdrawYears=planUntil-retireAge;
+  const results=[], max=SHILLER.length-withdrawYears;
+  // Default: 100% equity if no allocation provided
+  if(stkPct===undefined){stkPct=1;bndPct=0;cshPct=0;}
+  for(let s=0;s<=max;s++){
+    let v=portAtRetire, dep=null;
+    let curS=stkPct, curB=bndPct, curC=cshPct;
+    const wdSeries=[portAtRetire];
+    for(let y=0;y<withdrawYears;y++){
+      const age=retireAge+y;
+      const ss=ssIncome>0&&age>=ssAge?ssIncome:0;
+      const evt=events.filter(e=>e.age===age).reduce((sum,e)=>sum+e.amount,0);
+      const ret=curS*SHILLER[s+y]+curB*SHILLER_BONDS[s+y]+curC*CASH_REAL-feesRate;
+      v=v*(1+ret)-Math.max(0,spend-ss)-evt;
+      if(v<=0&&!dep){dep=y+1;v=0;}
+      wdSeries.push(Math.round(Math.max(0,v)));
+      // Rebalance: reset to target, or let drift
+      if(rebal){curS=stkPct;curB=bndPct;curC=cshPct;}
+      else{
+        const sV=curS*(1+SHILLER[s+y]),bV=curB*(1+SHILLER_BONDS[s+y]),cV=curC*(1+CASH_REAL);
+        const tot=sV+bV+cV;
+        if(tot>0){curS=sV/tot;curB=bV/tot;curC=cV/tot;}
+      }
+    }
+    results.push({yr:SY+s,survived:!dep,val:Math.round(Math.max(0,v)),dep,portAtRetire,wdSeries});
+  }
+  const ns=results.filter(r=>r.survived).length;
+  const sorted=results.map(r=>r.val).sort((a,b)=>a-b);
+  const notable=[1929,1966,2000,1937].map(yr=>({yr,r:results.find(r=>r.yr===yr)})).filter(x=>x.r);
+  return{results,ns,total:results.length,pct:(ns/results.length*100).toFixed(1),
+    p10:sorted[Math.floor(sorted.length*.10)],
+    p50:sorted[Math.floor(sorted.length*.50)],
+    p90:sorted[Math.floor(sorted.length*.90)],
+    worst:results.reduce((a,b)=>a.val<b.val?a:b),notable};
+}
+
+// ── Build rate cards ──
+document.getElementById('rateRow').innerHTML = SC.map(s => `
+  <div class="rc ${s.cls}">
+    <div class="rc-top">
+      <span class="rc-label" style="color:${s.color}" id="pct_${s.key}">—</span>
+      <span style="font-size:9px;color:${s.color};opacity:.5;">${s.offset===0?'base':s.offset>0?'+2%':'−2%'}</span>
+    </div>
+    <div class="rc-vals">
+      <div class="rc-val"><div class="rc-age" style="color:${s.color}" id="lra_${s.key}">—</div><div class="rc-amt" style="color:${s.color}" id="vra_${s.key}">—</div></div>
+      <div class="rc-val"><div class="rc-age" style="color:${s.color}" id="lea_${s.key}">—</div><div class="rc-amt" style="color:${s.color}" id="vea_${s.key}">—</div></div>
+    </div>
+  </div>`).join('');
+
+// ── One-time events ──
+function addEvent(){
+  const label  = cleanLabel(document.getElementById('evtLabel').value);
+  const age    = parseInt(document.getElementById('evtAge').value);
+  const amount = pm(document.getElementById('evtAmt').value);
+  if(!age || !amount) return;
+  oneTimeEvents.push({label, age, amount});
+  document.getElementById('evtLabel').value = '';
+  document.getElementById('evtAge').value   = '';
+  document.getElementById('evtAmt').value   = '';
+  renderEvents();
+  upd();
+}
+function removeEvent(i){ oneTimeEvents.splice(i,1); renderEvents(); upd(); }
+function renderEvents(){
+  const list=document.getElementById('eventList');
+  list.textContent='';
+  oneTimeEvents.forEach((event,i)=>{
+    const e=cleanEvent(event);
+    oneTimeEvents[i]=e;
+    const item=document.createElement('div');
+    item.className='event-item';
+    const del=document.createElement('button');
+    del.className='event-del';
+    del.type='button';
+    del.textContent='✕';
+    del.addEventListener('click',()=>removeEvent(i));
+    const label=document.createElement('span');
+    label.style.color='var(--warn)';
+    label.style.fontSize='11px';
+    label.textContent=e.label;
+    const age=document.createElement('span');
+    age.style.color='var(--muted)';
+    age.style.fontSize='10px';
+    age.textContent='age '+e.age;
+    const amount=document.createElement('span');
+    amount.style.color='var(--text)';
+    amount.style.fontSize='11px';
+    amount.style.marginLeft='auto';
+    amount.textContent=(e.amount>0?'-':'+')+fmtM(Math.abs(e.amount));
+    item.append(del,label,age,amount);
+    list.appendChild(item);
+  });
+}
+function fmtEvt(el){ const v=pm(el.value); if(v>0) el.value='$'+v.toLocaleString('en-US',{maximumFractionDigits:0}); }
+
+// ── Helpers ──
+function pm(s){ return parseFloat(String(s).replace(/[$,]/g,'')) || 0; }
+function fmt(el){ const v=pm(el.value); if(v>0) el.value='$'+v.toLocaleString('en-US',{maximumFractionDigits:0}); }
+function fmtM(v){ if(v>=1e6) return '$'+(v/1e6).toFixed(2)+'M'; if(v>=1000) return '$'+(v/1000).toFixed(0)+'k'; return '$'+Math.round(v).toLocaleString(); }
+function fmtMs(v){ return v>=1e6?'$'+(v/1e6).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'k':'$'+Math.round(v).toLocaleString(); }
+function fmtFull(v){ return '$'+Math.round(v).toLocaleString(); } // for sequence explorer detail
+function cleanLabel(value){
+  return String(value || 'Event').replace(/\s+/g,' ').trim().slice(0,60) || 'Event';
+}
+function cleanEvent(event){
+  return {
+    label: cleanLabel(event.label),
+    age: Math.max(0, Math.min(120, parseInt(event.age,10) || 0)),
+    amount: Number.isFinite(Number(event.amount)) ? Number(event.amount) : 0
+  };
+}
+function randn(){ // Box-Muller normal random
+  let u=0,v=0;
+  while(u===0) u=Math.random();
+  while(v===0) v=Math.random();
+  return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+}
+function runMonteCarlo(baseRate, contrib, startAge, contribUntil, startVal, xMin, xMax, N=500){
+  const len = xMax - xMin + 1, results = [];
+  for(let n = 0; n < N; n++){
+    let v = startVal;
+    for(let a = startAge; a < xMin; a++){
+      const r = baseRate + randn() * BEAR_SD/100;
+      v = v*(1+r) + (a < contribUntil ? contrib : 0);
+    }
+    const series = Array.from({length: len}, (_,i) => {
+      if(i>0){ const r = baseRate + randn() * BEAR_SD/100; v = v*(1+r) + ((xMin+i-1) < contribUntil ? contrib : 0); }
+      return Math.round(v);
+    });
+    results.push(series);
+  }
+  const p10=[], p50=[], p90=[];
+  for(let i = 0; i < len; i++){
+    const vals = results.map(r=>r[i]).sort((a,b)=>a-b);
+    p10.push(vals[Math.floor(N*0.10)]);
+    p50.push(vals[Math.floor(N*0.50)]);
+    p90.push(vals[Math.floor(N*0.90)]);
+  }
+  return {p10, p50, p90};
+}
+
+// ── Core math ──
+function calcAt(rate, contrib, startAge, contribUntil, startVal, toAge){
+  let v = startVal;
+  for(let a = startAge; a < toAge; a++)
+    v = v*(1+rate) + (a < contribUntil ? contrib : 0);
+  return Math.round(v);
+}
+function calcSeries(rate, contrib, startAge, contribUntil, startVal, xMin, xMax){
+  let v = startVal;
+  for(let a = startAge; a < xMin; a++)
+    v = v*(1+rate) + (a < contribUntil ? contrib : 0);
+  return Array.from({length: xMax-xMin+1}, (_,i) => {
+    if(i>0) v = v*(1+rate) + ((xMin+i-1) < contribUntil ? contrib : 0);
+    return Math.round(v);
+  });
+}
+// Safe spend binary search
+
+// ── Permalink — serialize all inputs to URL hash ──
+const SHARE_INPUTS = ['startVal','contrib','baseRate','targetInput','ageNow','ageCoast','ageRetire','ageEnd',
+  'mcToggle','feesToggle','feesSlider','wdPortOverride','allocS','allocB','allocC','rebalToggle',
+  'spendSlider','taxRate','ssToggle','ssIncome','ssAge'];
+
+function shareScenario(){
+  const state={};
+  SHARE_INPUTS.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    state[id]=el.type==='checkbox'?el.checked:el.value;
+  });
+  state._tab=currentTab;
+  state._events=oneTimeEvents;
+  state._targetManual=_targetManual;
+  const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(state))));
+  const url=location.href.split('#')[0]+'#'+encoded;
+  navigator.clipboard.writeText(url).then(()=>{
+    const btn=document.getElementById('shareBtn');
+    const orig=btn.innerHTML;
+    btn.innerHTML='✓ Link copied!';
+    btn.style.color='#1D9E75';
+    setTimeout(()=>{btn.innerHTML=orig;},2000);
+  }).catch(()=>{
+    // Fallback: prompt
+    prompt('Copy this link to share your scenario:',url);
+  });
+}
+
+function loadFromHash(){
+  const hash=location.hash.slice(1);
+  if(!hash) return;
+  try{
+    const state=JSON.parse(decodeURIComponent(escape(atob(hash))));
+    SHARE_INPUTS.forEach(id=>{
+      const el=document.getElementById(id);
+      if(!el||state[id]===undefined) return;
+      if(el.type==='checkbox') el.checked=state[id];
+      else el.value=state[id];
+    });
+    if(state._events&&Array.isArray(state._events)){
+      oneTimeEvents=state._events.map(cleanEvent).filter(e=>e.age>0&&e.amount!==0).slice(0,20);
+      renderEvents();
+    }
+    if(state._targetManual!==undefined) _targetManual=state._targetManual;
+    if(state._tab) switchTab(state._tab);
+    // Re-format currency inputs
+    ['startVal','contrib','wdPortOverride','ssIncome'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el&&el.value) fmt(el);
+    });
+    updAlloc();
+    upd();
+  } catch(e){ /* invalid hash, ignore */ }
+}
+
+// ── Goal bar — 25× spend target vs projected portfolio ──
+function renderGoalBar(projectedPort, annualSpend, retireAge){
+  const el=document.getElementById('goalBar');
+  if(!el) return;
+  if(annualSpend<=0){el.innerHTML='';return;}
+  const target=annualSpend*25;
+  const pct=Math.min(100,(projectedPort/target)*100);
+  const onTrack=projectedPort>=target;
+  const overPct=projectedPort>target?((projectedPort/target-1)*100).toFixed(0):null;
+  const underAmt=!onTrack?fmtM(target-projectedPort):null;
+  el.innerHTML=`
+    <div style="background:rgba(255,255,255,0.03);border:1px solid ${onTrack?'rgba(29,158,117,0.25)':'rgba(251,146,60,0.25)'};border-radius:9px;padding:10px 14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">
+        <div style="font-size:10px;color:var(--muted);">
+          <span style="color:${onTrack?'#1D9E75':'#FB923C'};font-weight:600;">25× target</span>
+          &nbsp;${fmtM(target)} needed at age ${retireAge}
+        </div>
+        <div style="font-size:10px;font-weight:600;color:${onTrack?'#1D9E75':'#FB923C'};">
+          ${onTrack?'✓ on track · +'+overPct+'% above target':'✗ '+underAmt+' short'}
+        </div>
+      </div>
+      <div style="position:relative;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${onTrack?'#1D9E75':'#FB923C'};border-radius:3px;transition:width .3s;"></div>
+        ${onTrack?'':'<div style="position:absolute;left:100%;top:-2px;height:10px;width:2px;background:rgba(255,255,255,0.2);border-radius:1px;"></div>'}
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;">
+        <span style="font-size:9px;color:var(--muted);">$0</span>
+        <span style="font-size:9px;color:var(--muted);">Projected: ${fmtM(projectedPort)}</span>
+        <span style="font-size:9px;color:var(--muted);">Target: ${fmtM(target)}</span>
+      </div>
+    </div>`;
+}
+
+function switchTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['accumulation','withdrawal'][i]===tab));
+  const isWd = tab==='withdrawal';
+
+  // Panel visibility
+  document.getElementById('wdrawOnlyPanel').style.display      = isWd ? 'flex' : 'none';
+  document.getElementById('wdrawOnlyPanel').style.flexDirection = 'column';
+  document.getElementById('accumChartPanel').style.display     = isWd ? 'none' : 'block';
+  document.getElementById('wdrawRight').style.display          = isWd ? 'flex' : 'none';
+  document.getElementById('rateRow').style.display             = isWd ? 'none' : '';
+
+  // Accumulation-only inputs — hide on withdrawal tab
+  ['fieldContrib','divContrib','fieldTarget','rowMC'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=isWd?'none':'';
+  });
+
+  // Return rate slider hint changes by tab
+  const hint=document.getElementById('rateSliderHint');
+  if(hint) hint.innerHTML=isWd
+    ?'<span>1%</span><span style="color:#1D9E75;">sets your retirement portfolio ↑</span><span>12%</span>'
+    :'<span>1%</span><span>after inflation · scenarios ±2%</span><span>12%</span>';
+
+  // Open allocation panel by default on withdrawal tab
+  if(isWd){
+    const ap=document.getElementById('allocPanel');
+    const ac=document.getElementById('allocChevron');
+    if(ap&&ap.style.display==='none'){
+      ap.style.display='';
+      if(ac) ac.style.transform='rotate(180deg)';
+    }
+  }
+  _prevSurvPct = null; // reset delta tracker on tab switch
+  upd();
+}
+
+function upd(){
+  // ── Read inputs ──
+  const startVal     = pm(document.getElementById('startVal').value);
+  const contrib      = pm(document.getElementById('contrib').value);
+  const baseRatePct  = parseFloat(document.getElementById('baseRate').value);
+  const annualSpend  = parseInt(document.getElementById('spendSlider').value) || 80000;
+  // Target: auto = 25× spend unless user has manually set it
+  const targetInputEl = document.getElementById('targetInput');
+  const targetManualVal = pm(targetInputEl?targetInputEl.value:'');
+  if(!_targetManual && annualSpend>0 && targetInputEl){
+    const auto=annualSpend*25;
+    targetInputEl.value='$'+auto.toLocaleString('en-US',{maximumFractionDigits:0});
+    const hint=document.getElementById('targetHint');
+    if(hint) hint.textContent='Auto · 25× spend = '+fmtM(auto);
+  }
+  const target = _targetManual&&targetManualVal>0 ? targetManualVal : annualSpend*25;
+  const useMC        = document.getElementById('mcToggle').checked;
+  const taxRate      = parseInt(document.getElementById('taxRate').value)/100;
+  const ssOn         = document.getElementById('ssToggle').checked;
+  const ssIncome     = ssOn ? pm(document.getElementById('ssIncome').value) : 0;
+  const ssAge        = ssOn ? (parseInt(document.getElementById('ssAge').value)||67) : 999;
+
+  const startAge     = parseInt(document.getElementById('ageNow').value)    || 0;
+  const contribUntil = parseInt(document.getElementById('ageCoast').value)  || 0;
+  const retireAge    = parseInt(document.getElementById('ageRetire').value) || 0;
+  const planUntil    = parseInt(document.getElementById('ageEnd').value)    || 0;
+
+  // Don't render until we have the minimum required inputs
+  if(!startVal || !startAge || !contribUntil || !retireAge || !planUntil) return;
+  const xMin = startAge, xMax = planUntil;
+
+  const feesOn   = document.getElementById('feesToggle').checked;
+  const feesRate = feesOn ? parseFloat(document.getElementById('feesSlider').value)/100 : 0;
+  document.getElementById('feesPanel').style.display = feesOn ? '' : 'none';
+  document.getElementById('lblFees').textContent = feesOn ? (parseFloat(document.getElementById('feesSlider').value)).toFixed(2)+'%/yr' : '';
+
+  document.getElementById('lblT').textContent    = fmtM(target);
+  document.getElementById('lblRate').textContent  = baseRatePct.toFixed(1)+'%';
+  document.getElementById('lblTax').textContent   = (taxRate*100).toFixed(0)+'%';
+  document.getElementById('spendDisp').innerHTML  =
+    `$${annualSpend.toLocaleString()} <span>/yr &nbsp;·&nbsp; $${Math.round(annualSpend/12).toLocaleString()}/mo</span>`;
+
+  document.getElementById('ssPanel').style.display = ssOn ? '' : 'none';
+  const effectiveContrib = contrib;
+
+  // Scenario rates: base ± 2%, minus expense ratio if fees toggle on
+  const rates = SC.map(s => Math.max(0.001, (baseRatePct + s.offset) / 100 - feesRate));
+
+  // ── Rate cards ──
+  // Always show portfolio at retireAge in left slot (matches hero card & accum stat row)
+  // Right slot: accumulation tab shows planUntil value; withdrawal tab hides rate cards entirely
+  SC.forEach((s,i) => {
+    const r      = rates[i];
+    const nomRetire = calcAt(r, effectiveContrib, startAge, contribUntil, startVal, retireAge);
+    const nomEnd    = calcAt(r, effectiveContrib, startAge, contribUntil, startVal, xMax);
+    const dispRetire = nomRetire;
+    const dispEnd    = nomEnd;
+    document.getElementById('pct_'+s.key).textContent = (r*100).toFixed(1)+'%';
+    document.getElementById('lra_'+s.key).textContent = 'age '+retireAge;
+    document.getElementById('lea_'+s.key).textContent = 'age '+xMax;
+    document.getElementById('vra_'+s.key).textContent = fmtM(dispRetire);
+    document.getElementById('vea_'+s.key).textContent = fmtM(dispEnd);
+  });
+
+  // ══════════════════════════════════════════
+  // WITHDRAWAL TAB — unified historical simulation
+  // ══════════════════════════════════════════
+  if(currentTab==='withdrawal'){
+    if(planUntil <= retireAge) return;
+
+    // Portfolio at retirement — override input takes priority, else slider-calculated
+    const portOverride = pm(document.getElementById('wdPortOverride').value);
+    const portBase = portOverride > 0 ? portOverride : calcAt(rates[1], effectiveContrib, startAge, contribUntil, startVal, retireAge);
+
+    // Allocation — read current values (default 100% stocks if invalid)
+    const alloc = getAlloc();
+    const stkPct = alloc.valid ? alloc.s : 1;
+    const bndPct = alloc.valid ? alloc.b : 0;
+    const cshPct = alloc.valid ? alloc.c : 0;
+    const rebal  = document.getElementById('rebalToggle').checked;
+
+    const h = histWithdraw(portBase, annualSpend, retireAge, planUntil, oneTimeEvents, ssIncome, ssAge, feesRate, stkPct, bndPct, cshPct, rebal);
+
+    // ── Summary card + sequence explorer ──
+    const withdrawYears = planUntil - retireAge;
+    const nDepleted = h.results.filter(r=>!r.survived).length;
+    const nSurvived = h.results.filter(r=>r.survived).length;
+    const depletedResults = h.results.filter(r=>!r.survived);
+    const survivedResults = h.results.filter(r=>r.survived);
+    const takeHome = Math.round(annualSpend*(1-taxRate));
+
+    // Depletion stats
+    const depAges = depletedResults.map(r=>retireAge+(r.dep||0));
+    const depMin = depAges.length ? Math.min(...depAges) : null;
+    const depMax = depAges.length ? Math.max(...depAges) : null;
+    const depAvg = depAges.length ? Math.round(depAges.reduce((a,b)=>a+b,0)/depAges.length) : null;
+
+    // Survived estate stats
+    const estateVals = survivedResults.map(r=>r.val).sort((a,b)=>a-b);
+    const estMin = estateVals.length ? estateVals[0] : null;
+    const estMax = estateVals.length ? estateVals[estateVals.length-1] : null;
+    const estMedian = estateVals.length ? estateVals[Math.floor(estateVals.length/2)] : null;
+
+    const survPct = parseFloat(h.pct);
+    const survColor = survPct>=80?'var(--bull)':survPct>=50?'#F59E0B':'var(--warn)';
+
+    // Delta indicator — what just changed
+    const delta = _prevSurvPct !== null ? survPct - _prevSurvPct : null;
+    const deltaHtml = delta !== null && Math.abs(delta) >= 0.5 ? `
+      <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;
+        padding:2px 8px;border-radius:12px;margin-left:8px;
+        background:${delta>0?'rgba(29,158,117,0.15)':'rgba(251,146,60,0.15)'};
+        color:${delta>0?'#1D9E75':'#FB923C'};">
+        ${delta>0?'↑':'↓'} ${Math.abs(delta).toFixed(1)}%
+      </span>` : '';
+    _prevSurvPct = survPct;
+
+    document.getElementById('wdHero').innerHTML = `
+      <div style="border-radius:13px;border:1px solid rgba(255,255,255,0.07);background:var(--surface2);padding:18px 20px;">
+        <!-- Top row: survival rate hero + take-home -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px;">
+          <div>
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px;">Survival rate · ${h.total} historical sequences</div>
+            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+              <span style="font-family:var(--fd);font-size:42px;font-weight:700;line-height:1;color:${survColor};">${h.pct}%</span>
+              <span style="font-size:12px;color:var(--muted);">made it to age ${planUntil}</span>
+              ${deltaHtml}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px;">Take-home / yr</div>
+            <div style="font-family:var(--fd);font-size:20px;font-weight:700;color:var(--text);">${fmtM(takeHome)}</div>
+            <div style="font-size:9px;color:var(--muted);margin-top:2px;">$${Math.round(takeHome/12).toLocaleString()}/mo after tax</div>
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.06);margin-bottom:16px;overflow:hidden;">
+          <div style="height:100%;border-radius:3px;width:${h.pct}%;background:${survColor};transition:width .4s;"></div>
+        </div>
+
+        <!-- Two buckets: depleted vs survived -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <!-- Depleted bucket -->
+          <div style="background:rgba(251,146,60,0.06);border:1px solid rgba(251,146,60,0.18);border-radius:10px;padding:12px 14px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+              <div style="width:6px;height:6px;border-radius:50%;background:#FB923C;flex-shrink:0;"></div>
+              <span style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:#FB923C;font-weight:600;">Ran out of money</span>
+            </div>
+            ${nDepleted===0
+              ? `<div style="font-family:var(--fd);font-size:22px;font-weight:700;color:var(--bull);">None ✓</div>
+                 <div style="font-size:10px;color:var(--muted);margin-top:2px;">every sequence survived</div>`
+              : `<div style="font-family:var(--fd);font-size:22px;font-weight:700;color:#FB923C;">${nDepleted} <span style="font-size:13px;font-weight:400;color:var(--muted);">sequences</span></div>
+                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:8px;">
+                   <div style="background:rgba(0,0,0,.2);border-radius:6px;padding:5px 7px;">
+                     <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:1px;">Earliest</div>
+                     <div style="font-size:11px;font-weight:500;color:#FB923C;">Age ${depMin}</div>
+                   </div>
+                   <div style="background:rgba(0,0,0,.2);border-radius:6px;padding:5px 7px;">
+                     <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:1px;">Average</div>
+                     <div style="font-size:11px;font-weight:500;color:#FB923C;">Age ${depAvg}</div>
+                   </div>
+                   <div style="background:rgba(0,0,0,.2);border-radius:6px;padding:5px 7px;">
+                     <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:1px;">Latest</div>
+                     <div style="font-size:11px;font-weight:500;color:#FB923C;">Age ${depMax}</div>
+                   </div>
+                 </div>`
+            }
+          </div>
+
+          <!-- Survived bucket -->
+          <div style="background:rgba(29,158,117,0.06);border:1px solid rgba(29,158,117,0.18);border-radius:10px;padding:12px 14px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+              <div style="width:6px;height:6px;border-radius:50%;background:#1D9E75;flex-shrink:0;"></div>
+              <span style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:#1D9E75;font-weight:600;">Survived · estate left</span>
+            </div>
+            ${nSurvived===0
+              ? `<div style="font-family:var(--fd);font-size:22px;font-weight:700;color:var(--warn);">None</div>
+                 <div style="font-size:10px;color:var(--muted);margin-top:2px;">no sequences survived</div>`
+              : `<div style="font-family:var(--fd);font-size:22px;font-weight:700;color:#1D9E75;">${fmtM(estMedian)} <span style="font-size:12px;font-weight:400;color:var(--muted);">median</span></div>
+                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:8px;">
+                   <div style="background:rgba(0,0,0,.2);border-radius:6px;padding:5px 7px;">
+                     <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:1px;">Lowest estate</div>
+                     <div style="font-size:11px;font-weight:500;color:#1D9E75;">${fmtM(estMin)}</div>
+                   </div>
+                   <div style="background:rgba(0,0,0,.2);border-radius:6px;padding:5px 7px;">
+                     <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:1px;">Highest estate</div>
+                     <div style="font-size:11px;font-weight:500;color:#1D9E75;">${fmtM(estMax)}</div>
+                   </div>
+                 </div>`
+            }
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(29,158,117,0.06);border:1px solid rgba(29,158,117,0.18);border-radius:8px;padding:10px 14px;margin-top:12px;">
+          <span style="font-size:18px;line-height:1;flex-shrink:0;">👇</span>
+          <div>
+            <div style="font-size:11px;font-weight:600;color:#1D9E75;margin-bottom:2px;">Explore any historical sequence</div>
+            <div style="font-size:10px;color:var(--muted);line-height:1.5;">Click any bar in the chart below to see exactly what happened — drawdowns, recovery, best and worst years, and the historical context behind that era.</div>
+          </div>
+        </div>
+      </div>`;
+
+  } else {
+  const chartLabels = Array.from({length: xMax-xMin+1}, (_,i) => xMin+i);
+  const retireIdx   = Math.max(0, Math.min(contribUntil-xMin, chartLabels.length-1));
+  let datasets = [], allVals = [];
+
+  rates.forEach((r, idx) => {
+    const s   = SC[idx];
+    const raw = calcSeries(r, effectiveContrib, startAge, contribUntil, startVal, xMin, xMax);
+    const data= raw.map(v => v);
+    allVals = allVals.concat(data);
+    datasets.push({label:s.label+' '+(r*100).toFixed(1)+'%',
+      data: data.map((v,i) => i<=retireIdx ? v : null),
+      borderColor:s.color, backgroundColor:'transparent', borderWidth:2.5, pointRadius:0, tension:0.3, spanGaps:false});
+    datasets.push({label:'_c'+idx,
+      data: data.map((v,i) => i>=retireIdx ? v : null),
+      borderColor:s.color, backgroundColor:'transparent', borderWidth:2, borderDash:[5,4], pointRadius:0, tension:0.3, spanGaps:false});
+  });
+
+  // Monte Carlo band
+  if(useMC){
+    const {p10, p50, p90} = runMonteCarlo(baseRatePct/100, effectiveContrib, startAge, contribUntil, startVal, xMin, xMax);
+    const adjP10 = p10;
+    const adjP50 = p50;
+    const adjP90 = p90;
+    allVals = allVals.concat(adjP90);
+    // P90 fill top
+    datasets.push({label:'MC P90', data:adjP90, borderColor:'rgba(167,139,250,0.4)', backgroundColor:'rgba(167,139,250,0.08)', fill:'+1', borderWidth:1, pointRadius:0, tension:0.3});
+    // P10 fill bottom
+    datasets.push({label:'MC P10', data:adjP10, borderColor:'rgba(167,139,250,0.4)', backgroundColor:'rgba(167,139,250,0.08)', fill:false, borderWidth:1, pointRadius:0, tension:0.3});
+    // P50 median
+    datasets.push({label:'MC Median', data:adjP50, borderColor:'#A78BFA', backgroundColor:'transparent', borderWidth:1.5, borderDash:[3,3], pointRadius:0, tension:0.3});
+  }
+
+  // No target line — removed
+
+  // Y scale
+  const fv  = allVals.filter(v => v>0 && isFinite(v));
+  const mn  = Math.min(...fv);
+  const mx  = Math.max(...fv);
+  const rng = mx - mn;
+  const yMin = Math.max(0, mn - rng * 0.05);
+  const yMax = mx + rng * 0.08;
+
+  // Key annotation ages: coast, retire, and plan end
+  const annotAges  = [...new Set([contribUntil, retireAge, planUntil])].filter(a => a >= xMin && a <= xMax);
+  const annotPlugin = {
+    id: 'annotations',
+    afterDraw(chart){
+      const ctx    = chart.ctx;
+      const xScale = chart.scales.x;
+      const yScale = chart.scales.y;
+      const ca     = chart.chartArea;
+
+      // Hairlines at key ages
+      annotAges.forEach(age => {        const xi  = chartLabels.indexOf(age);
+        if(xi < 0) return;
+        const xPx = xScale.getPixelForValue(xi);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+        ctx.lineWidth   = 1;
+        ctx.setLineDash([3,4]);
+        ctx.beginPath();
+        ctx.moveTo(xPx, ca.top);
+        ctx.lineTo(xPx, ca.bottom);
+        ctx.stroke();
+        // Age label at top of hairline
+        ctx.setLineDash([]);
+        ctx.font      = "400 9px 'DM Mono', monospace";
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.textAlign = 'center';
+        ctx.fillText(age, xPx, ca.top - 4);
+        ctx.restore();
+      });
+    }
+  };
+
+  const ySc = {
+    x:{
+      ticks:{
+        color:'#4A5568',
+        font:{size:10,family:"'DM Mono',monospace"},
+        callback:(val, i) => {
+          const age  = chartLabels[i];
+          if(!age) return '';
+          const span = xMax - xMin;
+          const step = span <= 20 ? 2 : span <= 40 ? 5 : 10;
+          return (age - xMin) % step === 0 ? age : '';
+        },
+        maxRotation: 0
+      },
+      grid:{color:'rgba(255,255,255,0.03)'}
+    },
+    y:{
+      min: yMin, max: yMax,
+      // Keep display:true so getPixelForValue works, but hide all visual elements
+      ticks:{ display:false },
+      grid:{ display:false },
+      border:{ display:false }
+    }
+  };
+
+  // Custom crosshair plugin — vertical line + fixed top-right panel showing 3 values
+  const crosshairPlugin = {
+    id: 'crosshair',
+    _hoverIdx: -1,
+    afterEvent(chart, args){
+      const e = args.event;
+      if(e.type === 'mousemove'){
+        const ca = chart.chartArea;
+        if(e.x < ca.left || e.x > ca.right){ this._hoverIdx = -1; chart.draw(); return; }
+        const totalPts = chart.data.labels.length;
+        const pct      = (e.x - ca.left) / (ca.right - ca.left);
+        this._hoverIdx = Math.max(0, Math.min(totalPts-1, Math.round(pct*(totalPts-1))));
+        chart.draw();
+      } else if(e.type === 'mouseout'){
+        this._hoverIdx = -1;
+        chart.draw();
+      }
+    },
+    afterDraw(chart){
+      const idx = this._hoverIdx;
+      if(idx < 0) return;
+      const ctx    = chart.ctx;
+      const xScale = chart.scales.x;
+      const yScale = chart.scales.y;
+      const ca     = chart.chartArea;
+      const age    = chart.data.labels[idx];
+      const xPx    = xScale.getPixelForValue(idx);
+
+      // Vertical crosshair line only
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth   = 1;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(xPx, ca.top);
+      ctx.lineTo(xPx, ca.bottom);
+      ctx.stroke();
+      ctx.restore();
+
+      // Dots on the 3 scenario lines only (never on target)
+      const scVals = [];
+      SC.forEach((s, si) => {
+        const sDs = chart.data.datasets[si*2];
+        const cDs = chart.data.datasets[si*2+1];
+        // Safety: skip if this slot is not a scenario dataset
+        if(!sDs || sDs.label === 'target' || (sDs.label||'').startsWith('MC')) return;
+        const val = sDs?.data[idx] ?? cDs?.data[idx];
+        if(!val || val <= 0){ scVals.push(null); return; }
+        scVals.push(val);
+        const yPx = yScale.getPixelForValue(val);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(xPx, yPx, 3.5, 0, Math.PI*2);
+        ctx.fillStyle = s.color;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Fixed info panel — top right corner of chart area
+      const panelW = 130, rowH = 22, padX = 12, padY = 10;
+      const rows   = SC.length + 1; // 3 scenarios + age header
+      const panelH = rows * rowH + padY * 2;
+      const px     = ca.right - panelW - 8;
+      const py     = ca.top + 8;
+
+      // Panel background
+      ctx.save();
+      ctx.fillStyle   = 'rgba(14,20,25,0.92)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.roundRect(px, py, panelW, panelH, 7);
+      ctx.fill();
+      ctx.stroke();
+
+      // Age header
+      ctx.font      = "500 10px 'DM Mono', monospace";
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.textAlign = 'left';
+      ctx.fillText('Age ' + age, px + padX, py + padY + 12);
+
+      // Divider
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.moveTo(px + 6, py + padY + rowH);
+      ctx.lineTo(px + panelW - 6, py + padY + rowH);
+      ctx.stroke();
+
+      // One row per scenario
+      SC.forEach((s, si) => {
+        const val = scVals[si];
+        const rowY = py + padY + rowH * (si + 1);
+        // Color swatch
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.roundRect(px + padX, rowY + 6, 8, 8, 2);
+        ctx.fill();
+        // Rate label
+        ctx.font      = "400 9px 'DM Mono', monospace";
+        ctx.fillStyle = s.color;
+        ctx.textAlign = 'left';
+        ctx.fillText((rates[si]*100).toFixed(1)+'%', px + padX + 12, rowY + 14);
+        // Value
+        ctx.font      = "600 11px 'DM Mono', monospace";
+        ctx.fillStyle = val ? s.color : 'rgba(255,255,255,0.2)';
+        ctx.textAlign = 'right';
+        ctx.fillText(val ? fmtM(val) : '—', px + panelW - padX, rowY + 14);
+      });
+
+      ctx.restore();
+    }
+  };
+
+  // Destroy chart if annotation key or crosshair plugin needs refresh
+  const annotKey = annotAges.join(',');
+  if(accumChart && accumChart._annotKey !== annotKey){
+    accumChart.destroy();
+    accumChart = null;
+  }
+
+  if(accumChart){ 
+    accumChart.data.labels   = chartLabels; 
+    accumChart.data.datasets = datasets; 
+    accumChart.options.scales = ySc;
+    accumChart.update('none'); 
+  } else { 
+    accumChart = new Chart(document.getElementById('gc'), {
+      type:'line', 
+      data:{labels:chartLabels, datasets},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{ mode:'index', intersect:false },
+        plugins:{
+          legend:{display:false},
+          tooltip:{enabled:false}
+        },
+        scales: ySc,
+        animation:{duration:200}
+      },
+      plugins:[annotPlugin, crosshairPlugin]
+    });
+    accumChart._annotKey = annotKey;
+  }
+
+  // ── Goal bar — 25× spend target vs base rate projection ──
+  if(currentTab==='accumulation'&&annualSpend>0){
+    const projPort=calcAt(rates[1],effectiveContrib,startAge,contribUntil,startVal,retireAge);
+    renderGoalBar(projPort,annualSpend,retireAge);
+  } else {
+    const gb=document.getElementById('goalBar');
+    if(gb) gb.innerHTML='';
+  }
+
+  // ── Breakeven — compact cards matching stat row aesthetic ──
+  const beRow = document.getElementById('beRow');
+  const beItems = SC.map((s,idx) => {
+    const series = calcSeries(rates[idx], effectiveContrib, startAge, contribUntil, startVal, xMin, xMax);
+    const hi     = series.findIndex((v,i) => v >= target);
+    const age    = hi >= 0 ? xMin + hi : null;
+    return `<div class="stat" style="flex:1;">
+      <div class="stat-label" style="color:${s.color}">${(rates[idx]*100).toFixed(1)}%</div>
+      <div class="stat-val" style="color:${age?'var(--bull)':'var(--warn)'}">${age ? 'Age '+age : '—'}</div>
+      <div class="stat-sub">${age ? 'hits '+fmtM(target) : 'not reached'}</div>
+    </div>`;
+  }).join('');
+  beRow.innerHTML = `
+    <span style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);white-space:nowrap;align-self:center;">Hits ${fmtM(target)}</span>
+    ${beItems}`;
+
+  // ── Legend ──
+  const legItems=SC.map((s,i)=>`<span class="li"><span class="ll"><span class="ls" style="background:${s.color}"></span><span class="ld" style="border-color:${s.color};opacity:.5;"></span></span>${(rates[i]*100).toFixed(1)}%</span>`);
+  if(useMC) legItems.push(`<span class="li"><span class="ls" style="background:#A78BFA"></span>Monte Carlo P10–P90</span>`);
+  document.getElementById('legend').innerHTML=legItems.join('');
+  document.getElementById('explainer').innerHTML=
+    `<span style="color:#3B9EFF;">─── solid</span> = contributing ${fmtM(Math.round(effectiveContrib))}/yr &nbsp;·&nbsp; <span style="color:var(--muted);">- - - dashed</span> = coasting after age ${contribUntil}`;
+  } // end accumulation else block
+
+  // ── Advanced: accumulation historical ──
+  if(accumMode==='advanced'){
+    const years=retireAge-startAge;
+    if(years>0&&years<=SHILLER.length){
+      const h=histAccum(startVal,effectiveContrib,contribUntil,startAge,years,feesRate);
+      document.getElementById('accumHistStats').innerHTML=`
+        <div class="hist-cell"><div class="hist-lbl">P10 (rough start)</div><div class="hist-val">${fmtM(h.p10)}</div></div>
+        <div class="hist-cell"><div class="hist-lbl">Median</div><div class="hist-val" style="color:var(--bull)">${fmtM(h.p50)}</div></div>
+        <div class="hist-cell"><div class="hist-lbl">P90 (great start)</div><div class="hist-val">${fmtM(h.p90)}</div></div>
+        <div class="hist-cell"><div class="hist-lbl">Worst (${h.worst.yr})</div><div class="hist-val" style="color:var(--warn)">${fmtM(h.worst.val)}</div></div>
+        <div class="hist-cell"><div class="hist-lbl">Best (${h.best.yr})</div><div class="hist-val" style="color:var(--bull)">${fmtM(h.best.val)}</div></div>
+        <div class="hist-cell"><div class="hist-lbl">Windows tested</div><div class="hist-val">${h.results.length}</div></div>`;
+
+      // Chart subtitle
+      document.getElementById('accumHistDetail').innerHTML=`
+        <div style="font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.6;">
+          <strong style="color:var(--text);">X-axis = year you started investing.</strong> Each bar shows your portfolio at retirement
+          if you had followed this exact plan starting that year, using actual US market returns.
+          Hover any bar for details.
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--muted);">
+          <span><span style="color:var(--bull);">■</span> Hit ${fmtM(target)} target</span>
+          <span><span style="color:var(--warn);">■</span> Missed target</span>
+          <span>${h.results.length} historical ${years}-year windows</span>
+        </div>`;
+
+      const labels=h.results.map(r=>r.yr);
+      const vals=h.results.map(r=>r.val);
+      const colors=vals.map(v=>v>=target?'rgba(34,211,160,0.7)':'rgba(251,146,60,0.7)');
+      const scAdv={
+        x:{
+          ticks:{color:'#4A5568',font:{size:9,family:"'DM Mono',monospace"},
+            maxTicksLimit:20, // show more ticks so 1930s are visible
+            callback:(val,i)=>{ const y=labels[i]; return y%10===0?y:''; }
+          },
+          grid:{display:false}
+        },
+        y:{ticks:{color:'#4A5568',font:{size:9,family:"'DM Mono',monospace"},callback:v=>fmtMs(v),maxTicksLimit:5},grid:{color:'rgba(255,255,255,0.04)'}}
+      };
+      const accumTooltip={callbacks:{label:ctx=>{
+        const yr=labels[ctx.dataIndex];
+        const val=ctx.parsed.y;
+        const hit=val>=target;
+        return [` Started investing: ${yr}`,` Portfolio at retirement: ${fmtM(val)}`,` ${hit?'✓ Hit target':'✗ Missed target'} (${fmtM(target)})`];
+      }}};
+      if(advAccumChart){advAccumChart.destroy();advAccumChart=null;}
+      advAccumChart=new Chart(document.getElementById('gcAdv'),{
+        type:'bar',
+        data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:0,borderRadius:2}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:accumTooltip},
+          scales:scAdv}
+      });
+    }
+  }
+
+  // ── Fan chart + SORR: always shown on withdrawal tab ──
+  if(currentTab==='withdrawal'){
+    const years=planUntil-retireAge;
+    if(years>0&&years<=SHILLER.length){
+      const portOverrideFan = pm(document.getElementById('wdPortOverride').value);
+      const portBase = portOverrideFan > 0 ? portOverrideFan : calcAt(rates[1], effectiveContrib, startAge, contribUntil, startVal, retireAge);
+      const allocFan = getAlloc();
+      const h=histWithdraw(portBase,annualSpend,retireAge,planUntil,oneTimeEvents,ssIncome,ssAge,feesRate,
+        allocFan.valid?allocFan.s:1, allocFan.valid?allocFan.b:0, allocFan.valid?allocFan.c:0,
+        document.getElementById('rebalToggle').checked);
+
+      const withdrawYears=planUntil-retireAge;
+      const ages=Array.from({length:withdrawYears+1},(_,i)=>retireAge+i);
+
+      // Values already in real terms (real Shiller returns + flat real spend)
+      const deflSeries=r=>r.wdSeries; // no deflation needed
+
+      // Percentile bands
+      const p10s=[],p25s=[],p50s=[],p75s=[],p90s=[];
+      for(let i=0;i<=withdrawYears;i++){
+        const vals=h.results.map(r=>r.wdSeries[i]).filter(v=>isFinite(v)&&v>=0).sort((a,b)=>a-b);
+        p10s.push(vals[Math.floor(vals.length*.10)]||0);
+        p25s.push(vals[Math.floor(vals.length*.25)]||0);
+        p50s.push(vals[Math.floor(vals.length*.50)]||0);
+        p75s.push(vals[Math.floor(vals.length*.75)]||0);
+        p90s.push(vals[Math.floor(vals.length*.90)]||0);
+      }
+
+      const inflLabel='real · Shiller';
+      const worstLine=h.results.reduce((a,b)=>a.val<b.val?a:b);
+      const wdYMax=Math.ceil(Math.max(...p90s.filter(v=>isFinite(v)&&v>0),100000)*1.15/100000)*100000;
+
+      if(advWdChart){advWdChart.destroy();advWdChart=null;}
+
+      const fanDatasets=[];
+      fanDatasets.push({data:p90s,borderColor:'rgba(29,158,117,0)',backgroundColor:'rgba(29,158,117,0.07)',fill:'+1',borderWidth:0,pointRadius:0,tension:0.4});
+      fanDatasets.push({data:p10s,borderColor:'rgba(29,158,117,0)',backgroundColor:'rgba(29,158,117,0.07)',fill:false,borderWidth:0,pointRadius:0,tension:0.4});
+      fanDatasets.push({data:p75s,borderColor:'rgba(29,158,117,0)',backgroundColor:'rgba(29,158,117,0.13)',fill:'+1',borderWidth:0,pointRadius:0,tension:0.4});
+      fanDatasets.push({data:p25s,borderColor:'rgba(29,158,117,0)',backgroundColor:'rgba(29,158,117,0.13)',fill:false,borderWidth:0,pointRadius:0,tension:0.4});
+      fanDatasets.push({label:'Worst ('+worstLine.yr+')',data:deflSeries(worstLine),borderColor:'rgba(186,117,23,0.75)',backgroundColor:'transparent',borderWidth:1.5,borderDash:[5,3],pointRadius:0,tension:0.4});
+      fanDatasets.push({label:'Median',data:p50s,borderColor:'#1D9E75',backgroundColor:'transparent',borderWidth:2.5,pointRadius:0,tension:0.4});
+
+      const fanAnnotPlugin={id:'fanAnnot',afterDraw(chart){
+        const ctx=chart.ctx,xSc=chart.scales.x,ySc=chart.scales.y,ca=chart.chartArea;
+        ctx.save();
+        // Depleted zone
+        const zeroY=ySc.getPixelForValue(0);
+        ctx.fillStyle='rgba(226,75,74,0.05)';
+        ctx.fillRect(ca.left,zeroY,ca.right-ca.left,ca.bottom-zeroY);
+        ctx.strokeStyle='rgba(226,75,74,0.25)';ctx.lineWidth=0.75;ctx.setLineDash([3,4]);
+        ctx.beginPath();ctx.moveTo(ca.left,zeroY);ctx.lineTo(ca.right,zeroY);ctx.stroke();
+        ctx.setLineDash([]);ctx.font="9px 'DM Mono',monospace";
+        ctx.fillStyle='rgba(226,75,74,0.55)';ctx.textAlign='left';
+        ctx.fillText('depleted',ca.left+6,Math.min(zeroY+12,ca.bottom-3));
+        // Retirement start point — prominent dot + pill label
+        if(p50s[0]>0){
+          const startY=ySc.getPixelForValue(p50s[0]);
+          // Tick on left axis
+          ctx.strokeStyle='rgba(29,158,117,0.6)';ctx.lineWidth=2;ctx.setLineDash([]);
+          ctx.beginPath();ctx.moveTo(ca.left-6,startY);ctx.lineTo(ca.left+6,startY);ctx.stroke();
+          // Dot on median line start
+          ctx.beginPath();ctx.arc(ca.left,startY,5,0,Math.PI*2);
+          ctx.fillStyle='#1D9E75';ctx.fill();
+          ctx.strokeStyle='rgba(0,0,0,0.4)';ctx.lineWidth=1.5;ctx.stroke();
+          // Pill label
+          const lbl='Start: '+fmtMs(portBase);
+          ctx.font="600 11px 'DM Mono',monospace";
+          const lw=ctx.measureText(lbl).width,lp=lw+14,lh=22;
+          const lx=ca.left+14,ly=startY-lh/2;
+          ctx.fillStyle='rgba(29,158,117,0.18)';ctx.strokeStyle='rgba(29,158,117,0.5)';ctx.lineWidth=1;
+          ctx.beginPath();ctx.roundRect(lx,ly,lp,lh,5);ctx.fill();ctx.stroke();
+          ctx.fillStyle='#1D9E75';ctx.textAlign='left';ctx.fillText(lbl,lx+7,ly+15);
+        }
+        // End labels
+        const ex=ca.right+8;
+        const endLabels=[
+          {val:p90s[p90s.length-1],label:'p90',color:'rgba(29,158,117,0.65)'},
+          {val:p50s[p50s.length-1],label:'median',color:'#1D9E75',bold:true},
+          {val:p10s[p10s.length-1],label:'p10',color:'rgba(29,158,117,0.65)'},
+          {val:worstLine.wdSeries[withdrawYears],label:'worst',color:'rgba(186,117,23,0.8)'},
+        ];
+        const placed=[];
+        endLabels.forEach(el=>{
+          let ey=ySc.getPixelForValue(Math.max(0,el.val));
+          placed.forEach(p=>{if(Math.abs(ey-p)<20)ey=p+20;});
+          placed.push(ey);
+          ctx.font=(el.bold?'500 ':'400 ')+"10px 'DM Mono',monospace";
+          ctx.fillStyle=el.color;ctx.textAlign='left';
+          ctx.fillText(el.val>0?fmtMs(el.val):'$0',ex,ey);
+          ctx.font="8px 'DM Mono',monospace";ctx.fillStyle='rgba(74,85,104,0.8)';
+          ctx.fillText(el.label,ex,ey+11);
+        });
+        ctx.restore();
+      }};
+
+      // Hover pill plugin — shows median value pill as mouse moves along x-axis
+      const hoverPillPlugin={id:'hoverPill',_hoverIdx:-1,
+        afterEvent(chart,args){
+          const e=args.event;
+          if(e.type==='mousemove'){
+            const ca=chart.chartArea;
+            if(e.x<ca.left||e.x>ca.right){this._hoverIdx=-1;chart.draw();return;}
+            const pct=(e.x-ca.left)/(ca.right-ca.left);
+            this._hoverIdx=Math.max(0,Math.min(ages.length-1,Math.round(pct*(ages.length-1))));
+            chart.draw();
+          } else if(e.type==='mouseout'){this._hoverIdx=-1;chart.draw();}
+        },
+        afterDraw(chart){
+          const idx=this._hoverIdx;
+          if(idx<0) return;
+          const ctx=chart.ctx,xSc=chart.scales.x,ySc=chart.scales.y,ca=chart.chartArea;
+          const xPx=xSc.getPixelForValue(idx);
+          const medVal=p50s[idx];
+          if(!medVal||medVal<=0) return;
+          const yPx=ySc.getPixelForValue(medVal);
+          // Dot on median line
+          ctx.save();
+          ctx.beginPath();ctx.arc(xPx,yPx,4,0,Math.PI*2);
+          ctx.fillStyle='#1D9E75';ctx.fill();
+          ctx.strokeStyle='rgba(0,0,0,0.3)';ctx.lineWidth=1;ctx.stroke();
+          // Pill label — age + median value, flip left near right edge
+          const txt='age '+ages[idx]+' · '+fmtMs(medVal);
+          ctx.font="500 10px 'DM Mono',monospace";
+          const tw=ctx.measureText(txt).width,pw=tw+14,ph=20;
+          const flipLeft=xPx+pw+12>ca.right;
+          const px=flipLeft?xPx-pw-8:xPx+8, py=yPx-ph/2;
+          ctx.fillStyle='rgba(14,20,25,0.9)';ctx.strokeStyle='rgba(29,158,117,0.5)';ctx.lineWidth=1;
+          ctx.beginPath();ctx.roundRect(px,py,pw,ph,5);ctx.fill();ctx.stroke();
+          ctx.fillStyle='#1D9E75';ctx.textAlign='left';ctx.fillText(txt,px+7,py+14);
+          ctx.restore();
+        }
+      };
+
+      advWdChart=new Chart(document.getElementById('gcWdAdv'),{
+        type:'line',data:{labels:ages,datasets:fanDatasets},
+        options:{responsive:true,maintainAspectRatio:false,
+          layout:{padding:{right:55}},
+          plugins:{legend:{display:false},tooltip:{enabled:false}},
+          scales:{
+            x:{ticks:{color:'#4A5568',font:{size:10,family:"'DM Mono',monospace"},maxTicksLimit:8},grid:{color:'rgba(255,255,255,0.025)'},title:{display:true,text:'Age during retirement',color:'#4A5568',font:{size:9}}},
+            y:{min:0,max:wdYMax,ticks:{color:'#4A5568',font:{size:10,family:"'DM Mono',monospace"},callback:v=>fmtMs(v),maxTicksLimit:7},grid:{color:'rgba(255,255,255,0.025)'},title:{display:true,text:'Portfolio value · today\'s $',color:'#4A5568',font:{size:9}}}
+          },animation:{duration:200}},
+        plugins:[fanAnnotPlugin,hoverPillPlugin]
+      });
+
+      // portBase shown in hero cards above — no separate stats grid needed
+
+      const notableTxt=h.notable.map(({yr,r})=>
+        `<span style="color:${r.survived?'var(--bull)':'var(--warn)'};">${yr}: ${r.survived?fmtM(r.val)+' left':'depleted yr '+(r.dep||'?')}</span>`
+      ).join(' &nbsp;·&nbsp; ');
+      document.getElementById('wdHistDetail').innerHTML=`
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--muted);margin-bottom:5px;align-items:center;">
+          <span><span style="display:inline-block;width:14px;height:2.5px;background:#1D9E75;vertical-align:middle;margin-right:3px;border-radius:1px;"></span>median</span>
+          <span><span style="display:inline-block;width:14px;height:8px;background:rgba(29,158,117,0.2);vertical-align:middle;margin-right:3px;border-radius:2px;"></span>p25–p75</span>
+          <span><span style="display:inline-block;width:14px;height:8px;background:rgba(29,158,117,0.08);vertical-align:middle;margin-right:3px;border-radius:2px;"></span>p10–p90</span>
+          <span><span style="display:inline-block;width:14px;height:2px;background:rgba(186,117,23,0.7);vertical-align:middle;margin-right:3px;border-radius:1px;"></span>worst (${worstLine.yr})</span>
+          <span>${h.total} windows · each line = one starting year · $${(annualSpend/1000).toFixed(0)}k/yr · real $</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);">Notable: ${notableTxt}</div>`;
+
+      // ── SORR bar chart: years survived + estate line overlay ──
+      document.getElementById('sorrTitle').innerHTML=`
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px;">Sequence of Returns Risk · by retirement start year<span class="tip" data-tip="Same portfolio, same spending — but retiring into a crash (1966, 2000) vs a bull market (1982) produces wildly different outcomes. Click any bar to explore that sequence.">?</span></div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:10px;">
+          <span style="color:rgba(29,158,117,0.8);">■</span> bars = years portfolio lasted &nbsp;·&nbsp;
+          <span style="color:rgba(250,210,60,0.9);">─</span> line = final estate (survived only) · real $
+        </div>`;
+      const sorrLabels=h.results.map(r=>r.yr);
+      const sorrYrs=h.results.map(r=>r.survived?withdrawYears:(r.dep||0));
+      const sorrEstate=h.results.map(r=>r.survived?r.val:null);
+      const sorrColors=h.results.map(r=>r.survived?'rgba(29,158,117,0.55)':'rgba(251,146,60,0.70)');
+      const maxEstate=Math.max(...sorrEstate.filter(v=>v!=null),1);
+      const sorrSc={
+        x:{ticks:{color:'#4A5568',font:{size:9,family:"'DM Mono',monospace"},callback:(_,i)=>sorrLabels[i]%10===0?sorrLabels[i]:'',maxRotation:0},grid:{display:false}},
+        yLeft:{type:'linear',position:'left',min:0,max:withdrawYears,
+           ticks:{color:'#4A5568',font:{size:9,family:"'DM Mono',monospace"},callback:v=>'yr '+v,maxTicksLimit:6},
+           grid:{color:'rgba(255,255,255,0.04)'},
+           title:{display:true,text:'Years lasted',color:'#4A5568',font:{size:9}}},
+        yRight:{type:'linear',position:'right',min:0,max:Math.ceil(maxEstate*1.1/100000)*100000,
+           ticks:{color:'rgba(250,210,60,0.7)',font:{size:9,family:"'DM Mono',monospace"},callback:v=>fmtMs(v),maxTicksLimit:6},
+           grid:{display:false},
+           title:{display:true,text:'Estate · real $',color:'rgba(250,210,60,0.7)',font:{size:9}}}
+      };
+      if(window._sorrChart){window._sorrChart.destroy();window._sorrChart=null;}
+      // Store context for explorer — read allocation locally for this block
+      const sorrAlloc=getAlloc();
+      const sorrS=sorrAlloc.valid?sorrAlloc.s:1, sorrB=sorrAlloc.valid?sorrAlloc.b:0, sorrC=sorrAlloc.valid?sorrAlloc.c:0;
+      _sorrExplorerCtx={h, retireAge, planUntil, annualSpend, taxRate, portBase, stkPct:sorrS, bndPct:sorrB, cshPct:sorrC};
+      // If a year was previously selected, refresh explorer with new data instead of clearing
+      if(_sorrSelectedIdx>=0) showSeqExplorer(_sorrSelectedIdx);
+
+      // Custom hover plugin for SORR — pill on estate line, bar info in tooltip
+      const sorrHoverPlugin={id:'sorrHover',_idx:-1,
+        afterEvent(chart,args){
+          const e=args.event;
+          const ca=chart.chartArea;
+          if(!ca) return;
+          if(e.type==='mousemove'){
+            if(e.x<ca.left||e.x>ca.right){this._idx=-1;chart.draw();return;}
+            const pct=(e.x-ca.left)/(ca.right-ca.left);
+            this._idx=Math.max(0,Math.min(sorrLabels.length-1,Math.round(pct*(sorrLabels.length-1))));
+            chart.draw();
+          } else if(e.type==='mouseout'){this._idx=-1;chart.draw();}
+        },
+        afterDraw(chart){
+          const idx=this._idx;
+          if(idx<0) return;
+          const ctx=chart.ctx,xSc=chart.scales.x,yR=chart.scales.yRight,yL=chart.scales.yLeft,ca=chart.chartArea;
+          const xPx=xSc.getPixelForValue(idx);
+          const estateVal=sorrEstate[idx];
+          const yr=sorrLabels[idx];
+          const r=h.results[idx];
+          const yrs=r.survived?withdrawYears:(r.dep||0);
+
+          // Bar hover: vertical line + bar info pill on left axis
+          ctx.save();
+          ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;ctx.setLineDash([]);
+          ctx.beginPath();ctx.moveTo(xPx,ca.top);ctx.lineTo(xPx,ca.bottom);ctx.stroke();
+
+          // Bar pill (years info) — rendered near top to avoid overlap with short bars
+          const barTxt=yr+' · '+(r.survived?yrs+' yrs ✓':'depleted yr '+yrs);
+          ctx.font="500 10px 'DM Mono',monospace";
+          const btw=ctx.measureText(barTxt).width, bpw=btw+14, bph=18;
+          const bFlip=xPx+bpw+10>ca.right;
+          const bpx=bFlip?xPx-bpw-6:xPx+6, bpy=ca.top+8;
+          ctx.fillStyle='rgba(14,20,25,0.88)';
+          ctx.strokeStyle=r.survived?'rgba(29,158,117,0.5)':'rgba(251,146,60,0.5)';ctx.lineWidth=1;
+          ctx.beginPath();ctx.roundRect(bpx,bpy,bpw,bph,4);ctx.fill();ctx.stroke();
+          ctx.fillStyle=r.survived?'#1D9E75':'#FB923C';ctx.textAlign='left';
+          ctx.fillText(barTxt,bpx+7,bpy+13);
+
+          // Estate pill on the line (only if survived)
+          if(estateVal!=null&&yR){
+            const eyPx=yR.getPixelForValue(estateVal);
+            // Dot on line
+            ctx.beginPath();ctx.arc(xPx,eyPx,4,0,Math.PI*2);
+            ctx.fillStyle='rgba(250,210,60,0.9)';ctx.fill();
+            ctx.strokeStyle='rgba(0,0,0,0.3)';ctx.lineWidth=1;ctx.stroke();
+            // Pill
+            const etxt='$'+fmtMs(estateVal)+' estate';
+            ctx.font="500 10px 'DM Mono',monospace";
+            const etw=ctx.measureText(etxt).width,epw=etw+14,eph=18;
+            const eFlip=xPx+epw+10>ca.right;
+            const epx=eFlip?xPx-epw-6:xPx+6, epy=eyPx-eph/2;
+            ctx.fillStyle='rgba(14,20,25,0.88)';ctx.strokeStyle='rgba(250,210,60,0.5)';ctx.lineWidth=1;
+            ctx.beginPath();ctx.roundRect(epx,epy,epw,eph,4);ctx.fill();ctx.stroke();
+            ctx.fillStyle='rgba(250,210,60,0.95)';ctx.textAlign='left';
+            ctx.fillText(etxt,epx+7,epy+13);
+          }
+          ctx.restore();
+        }
+      };
+
+      // Click handler for SORR bars
+      const sorrClickPlugin={id:'sorrClick',
+        afterEvent(chart,args){
+          const e=args.event;
+          if(e.type!=='click') return;
+          const ca=chart.chartArea;
+          if(!ca||e.x<ca.left||e.x>ca.right) return;
+          const pct=(e.x-ca.left)/(ca.right-ca.left);
+          const idx=Math.max(0,Math.min(sorrLabels.length-1,Math.round(pct*(sorrLabels.length-1))));
+          if(_sorrSelectedIdx===idx){
+            // Deselect
+            _sorrSelectedIdx=-1;
+            chart.data.datasets[0].backgroundColor=sorrColors;
+            chart.update('none');
+            document.getElementById('wdSeqExplorer').style.display='none';
+          } else {
+            _sorrSelectedIdx=idx;
+            _sorrPulseShown=true; // dismiss pulse after first interaction
+            // Dim all bars, highlight selected
+            chart.data.datasets[0].backgroundColor=sorrColors.map((c,i)=>
+              i===idx?c:c.replace(/[\d.]+\)$/,'0.18)')
+            );
+            chart.update('none');
+            showSeqExplorer(idx);
+            document.getElementById('wdSeqExplorer').scrollIntoView({behavior:'smooth',block:'nearest'});
+          }
+        }
+      };
+
+      // Pulse plugin — draws animated dot on worst bar on first load
+      const worstIdx = h.results.findIndex(r=>r.yr===h.worst.yr);
+      const sorrPulsePlugin={id:'sorrPulse',
+        afterDraw(chart){
+          if(_sorrPulseShown||_sorrSelectedIdx>=0||worstIdx<0) return;
+          const ctx=chart.ctx,xSc=chart.scales.x,yL=chart.scales.yLeft,ca=chart.chartArea;
+          if(!xSc||!yL) return;
+          const xPx=xSc.getPixelForValue(worstIdx);
+          const barTopY=yL.getPixelForValue(sorrYrs[worstIdx]); // top of the worst bar
+          const dotY=barTopY-10; // just above the bar
+          const now=Date.now();
+          const t=(Math.sin(now/500)+1)/2;
+          ctx.save();
+          // Pulse ring
+          ctx.beginPath();
+          ctx.arc(xPx,dotY,5+t*7,0,Math.PI*2);
+          ctx.fillStyle=`rgba(29,158,117,${0.2*(1-t)})`;
+          ctx.fill();
+          // Solid dot
+          ctx.beginPath();
+          ctx.arc(xPx,dotY,5,0,Math.PI*2);
+          ctx.fillStyle='#1D9E75';ctx.fill();
+          ctx.strokeStyle='rgba(0,0,0,0.4)';ctx.lineWidth=1;ctx.stroke();
+          // Callout pill — above the dot, clamped inside canvas
+          const lbl=`↓ Click to explore ${h.worst.yr}`;
+          ctx.font="600 10px 'DM Mono',monospace";
+          const lw=ctx.measureText(lbl).width,pw=lw+16,ph=20;
+          const idealX=xPx-pw/2;
+          const pillX=Math.max(ca.left+2,Math.min(ca.right-pw-2,idealX));
+          const pillY=Math.max(ca.top+4,dotY-ph-10);
+          ctx.fillStyle='rgba(14,20,25,0.92)';
+          ctx.strokeStyle='rgba(29,158,117,0.6)';ctx.lineWidth=1;
+          ctx.beginPath();ctx.roundRect(pillX,pillY,pw,ph,5);ctx.fill();ctx.stroke();
+          ctx.fillStyle='#1D9E75';ctx.textAlign='left';
+          ctx.fillText(lbl,pillX+8,pillY+14);
+          ctx.restore();
+        }
+      };
+
+      // Drive the pulse animation with a standalone rAF loop
+      (function animatePulse(){
+        if(_sorrPulseShown) return;
+        if(window._sorrChart) window._sorrChart.draw();
+        requestAnimationFrame(animatePulse);
+      })();
+
+      window._sorrChart=new Chart(document.getElementById('gcSorr'),{
+        data:{labels:sorrLabels,datasets:[
+          {type:'bar',data:sorrYrs,backgroundColor:sorrColors,borderWidth:0,borderRadius:2,yAxisID:'yLeft'},
+          {type:'line',data:sorrEstate,borderColor:'rgba(250,210,60,0.85)',backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:0.3,yAxisID:'yRight',spanGaps:false}
+        ]},
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:{enabled:false}},
+          scales:sorrSc,
+          onClick:(e,els,chart)=>{}},
+        plugins:[sorrHoverPlugin,sorrClickPlugin,sorrPulsePlugin]
+      });
+      // Store base colors for reset
+      window._sorrChart._sorrColors=[...sorrColors];
+    }
+  }
+}
+
+// ── Historical context for notable retirement start years ──
+const HIST_CONTEXT = {
+  // ── 1870s–1890s: Gilded Age volatility ──
+  1871:'Start of the Gilded Age. Railroad boom drove strong early returns.',
+  1872:'Post-Civil War industrial expansion. Solid early sequence.',
+  1873:'Panic of 1873 — global depression triggered by railroad overexpansion.',
+  1874:'Second year of the Long Depression. Deflation weighed on real returns.',
+  1875:'Long Depression continued. Weak growth through the late 1870s.',
+  1876:'Centennial year. Economy still depressed from the 1873 panic.',
+  1877:'Railroad strikes and continued deflation. Difficult start.',
+  1878:'Recovery beginning from the Long Depression. Returns improving.',
+  1879:'Return to gold standard. Economy began recovering strongly.',
+  1880:'Strong recovery decade begins. Industrialization accelerating.',
+  1881:'President Garfield assassinated. Markets briefly rattled.',
+  1882:'Solid industrial growth. Railroad network expanding rapidly.',
+  1883:'Minor recession. Markets pulled back after years of growth.',
+  1884:'Panic of 1884 — bank failures hit hard in year 1.',
+  1885:'Recovery from 1884 panic. Markets stabilized.',
+  1886:'Haymarket affair. Labor unrest but economy broadly resilient.',
+  1887:'Strong growth year. Industrial output expanding.',
+  1888:'Continued expansion. Gilded Age prosperity near its peak.',
+  1889:'Oklahoma land rush era. Strong economic confidence.',
+  1890:'Sherman Silver Act uncertainty. Markets volatile.',
+  1891:'Baring Crisis in Argentina spilled into global markets.',
+  1892:'Election year stability. Economy near cyclical peak.',
+  1893:'Panic of 1893 — severe depression hit in year 1. One of the worst starts of the era.',
+  1894:'Second year of 1893 depression. Unemployment peaked near 18%.',
+  1895:'Recovery from 1893 panic slowly gaining pace.',
+  1896:'Gold standard debate. Bryan vs McKinley election caused uncertainty.',
+  1897:'McKinley victory restored confidence. Recovery accelerated.',
+  1898:'Spanish-American War. Brief conflict, strong post-war boom.',
+  1899:'Gilded Age peak. Strong returns as industrial era matured.',
+  1900:'Turn of century confidence. Economy and markets broadly strong.',
+  // ── 1900s–1910s: Progressive Era ──
+  1901:'McKinley assassinated, TR takes over. Northern Securities panic briefly hit markets.',
+  1902:'Strong progressive era growth. Trust-busting era begins.',
+  1903:'Rich Man\'s Panic — minor market correction.',
+  1904:'Recovery year. Strong industrial output resumes.',
+  1905:'Boom years of the progressive era. Solid returns.',
+  1906:'San Francisco earthquake. Brief disruption, resilient recovery.',
+  1907:'Panic of 1907 — J.P. Morgan-contained crisis. Markets fell hard in year 1.',
+  1908:'Recovery from 1907 panic. Federal Reserve movement gaining momentum.',
+  1909:'Taft presidency begins. Continued solid growth.',
+  1910:'Progressive era reforms. Broadly stable economic conditions.',
+  1911:'Standard Oil breakup. Markets adjusted to trust-busting era.',
+  1912:'Titanic, three-way election. Markets resilient despite headlines.',
+  1913:'Federal Reserve Act passed. WWI clouds gathering in Europe.',
+  1914:'WWI began. US markets briefly closed. Significant shock in year 1.',
+  1915:'US war neutrality. European demand for US goods boomed.',
+  1916:'War production boom. US industrial output surging.',
+  1917:'US entered WWI. War bonds, inflation, market controls.',
+  1918:'Final year of WWI. Armistice November 1918. Transition period.',
+  1919:'Post-war inflation surge. Red Scare, labor unrest.',
+  // ── 1920s: Roaring Twenties ──
+  1920:'Sharp post-WWI recession hit in year 1. Deflation followed.',
+  1921:'Severe deflationary recession — worst short-term start of the decade.',
+  1922:'Recovery begins. Roaring Twenties gaining momentum.',
+  1923:'Harding died, Coolidge took over. Economy broadly resilient.',
+  1924:'Strong mid-decade growth. Bull market accelerating.',
+  1925:'Roaring Twenties peak. Exceptional bull market underway.',
+  1926:'Florida real estate bust, but stock market continued surging.',
+  1927:'Strong year. Bull market showing few signs of fatigue.',
+  1928:'Final boom years. Speculation rampant, valuations stretched.',
+  1929:'Great Depression began. Markets fell ~89% peak-to-trough over 3 years.',
+  // ── 1930s: Great Depression ──
+  1930:'Second year of the Depression crash — cascading bank failures.',
+  1931:'Worst single year of the Depression: equities fell ~43% in real terms.',
+  1932:'Depression trough. Unemployment near 25%. Markets bottomed.',
+  1933:'FDR\'s New Deal began. Bank Holiday, gold confiscation, recovery starts.',
+  1934:'New Deal era. Modest recovery, but far from pre-Depression levels.',
+  1935:'Recovery accelerating. New Deal programs taking hold.',
+  1936:'Strong recovery year. Economy growing rapidly from Depression lows.',
+  1937:'Post-New Deal recovery reversed sharply. Double-dip recession.',
+  1938:'Roosevelt recession ended. Recovery resumed heading into WWII.',
+  1939:'WWII began in Europe. US neutrality, but defense spending rising.',
+  // ── 1940s: WWII & Post-war ──
+  1940:'Fall of France, Battle of Britain. US defense mobilization accelerated.',
+  1941:'Pearl Harbor — US entered WWII. War economy fully mobilized.',
+  1942:'Full US war mobilization. War production boom drove strong real returns.',
+  1943:'Mid-war production peak. Markets pricing in Allied advantage.',
+  1944:'D-Day, Liberation of Paris. War\'s end in sight. Strong returns.',
+  1945:'WWII ended. V-E Day and V-J Day. Post-war boom began.',
+  1946:'Post-WWII inflation surge and reconversion. Rough first year.',
+  1947:'Cold War begins, Marshall Plan. Moderate growth.',
+  1948:'Truman re-elected. Berlin Blockade. Modest returns.',
+  1949:'Mild recession then recovery. Korean War clouds forming.',
+  // ── 1950s: Post-war boom ──
+  1950:'Korean War began. Defense spending surged. Strong growth.',
+  1951:'Korean War peak. Excess Profits Tax dampened returns.',
+  1952:'Eisenhower elected. Post-war consensus, strong economy.',
+  1953:'Korean War ended. Brief recession then strong recovery.',
+  1954:'Exceptional bull market start. Post-Korean era boom fully underway.',
+  1955:'Eisenhower prosperity. Strong consumer economy.',
+  1956:'Suez Crisis, Hungarian uprising. Markets briefly rattled.',
+  1957:'Sputnik launched. Mild recession hit in year 1.',
+  1958:'Recession recovery. Space race spending boosted economy.',
+  1959:'Strong late-1950s growth. Economy near cyclical peak.',
+  // ── 1960s: Go-Go years → Stagflation seeds ──
+  1960:'Kennedy elected. Mild recession then boom. Strong decade ahead.',
+  1961:'Bay of Pigs. But economy booming. Go-Go years beginning.',
+  1962:'Cuban Missile Crisis. Markets fell ~25% briefly, then recovered strongly.',
+  1963:'JFK assassinated. LBJ continuity. Markets resilient, strong recovery.',
+  1964:'Great Society legislation. Strong economic growth.',
+  1965:'Start of the great stagflation era — Vietnam spending + guns & butter policy.',
+  1966:'Vietnam escalation + inflation. The classic worst sequence in retirement research.',
+  1967:'Detroit riots, Six-Day War. Markets volatile but recovered.',
+  1968:'MLK and RFK assassinated. Tet Offensive. Inflation accelerating.',
+  1969:'Nixon takes over. Stagflation beginning. Negative year 1, then 1973–74 oil crash.',
+  // ── 1970s: Stagflation ──
+  1970:'Vietnam, Kent State. Mild recession. Inflation entrenched.',
+  1971:'Nixon closed gold window. Dollar devalued. Inflation surge.',
+  1972:'Nixon landslide, Watergate planted. Last good year before oil shock.',
+  1973:'Oil embargo. Real equity returns −37% in 1974 alone.',
+  1974:'Worst single-year start of the era: markets collapsing, inflation at 11%.',
+  1975:'Recovery from oil shock. Strong bounce but stagflation persisted.',
+  1976:'Carter elected. Bicentennial year. Moderate growth.',
+  1977:'Carter malaise begins. Energy crisis, dollar weakness.',
+  1978:'Second oil shock building. Iranian revolution approaching.',
+  1979:'Iranian Revolution, oil shock II. Volcker appointed Fed Chair.',
+  // ── 1980s: Volcker, Reagan, Bull market ──
+  1980:'Volcker shock — interest rates hit 20%. Severe recession in year 1.',
+  1981:'Reagan tax cuts, continued Volcker tightening. Recession deepened.',
+  1982:'Volcker pivot. Reagan bull market began. 18 years of exceptional returns followed.',
+  1983:'Recovery fully underway. Strong bull market gaining momentum.',
+  1984:'Long bull market ahead — solid sequence through 2000.',
+  1985:'Plaza Accord. Dollar fell, exports boomed. Strong mid-decade growth.',
+  1986:'Tax Reform Act. Oil price collapsed — mixed signals.',
+  1987:'Black Monday — markets fell 22% in one day. Strong recovery within months.',
+  1988:'Post-Black Monday recovery. Election year stability.',
+  1989:'Berlin Wall fell. End of Cold War euphoria. Strong returns.',
+  // ── 1990s: Gulf War, Tech boom ──
+  1990:'Gulf War, S&L crisis, mild recession. Difficult first year.',
+  1991:'Gulf War victory. Recession ended. Caught most of the 1990s boom.',
+  1992:'Clinton elected. Tech sector beginning to emerge. Solid growth.',
+  1993:'NAFTA signed. Bond market calm. Steady growth.',
+  1994:'Fed raised rates aggressively. Bond market crash in year 1. Last full window.',
+};
+
+// ── Sequence explorer state ──
+let _sorrSelectedIdx = -1;
+let _sorrExplorerCtx = null;
+let _prevSurvPct = null;
+let _sorrPulseShown = false;
+let _targetManual = false; // true when user has manually set target
+
+function showSeqExplorer(idx) {
+  if(!_sorrExplorerCtx) return;
+  const {h, retireAge, planUntil, annualSpend, taxRate, portBase, stkPct, bndPct, cshPct} = _sorrExplorerCtx;
+  const withdrawYears = planUntil - retireAge;
+  const r = h.results[idx];
+  if(!r) return;
+
+  const survived = r.survived;
+  const yr = r.yr;
+  const color = survived ? '#1D9E75' : '#FB923C';
+  const border = survived ? 'rgba(29,158,117,0.25)' : 'rgba(251,146,60,0.25)';
+  const bg = survived ? 'rgba(29,158,117,0.04)' : 'rgba(251,146,60,0.04)';
+
+  // Rank this sequence vs all by a continuous score: depleted = dep/withdrawYears (0–1), survived = 1 + estate normalised
+  const maxEst = Math.max(...h.results.filter(x=>x.survived).map(x=>x.val), 1);
+  const score = x => x.survived ? 1 + x.val/maxEst : (x.dep||0)/withdrawYears;
+  const allSorted = [...h.results].sort((a,b)=>score(a)-score(b));
+  const rank = allSorted.findIndex(x=>x.yr===yr);
+  const pctRank = Math.round((rank / (h.results.length-1)) * 100);
+  const rankLabel = pctRank<=10?'Bottom 10% — very rough':pctRank<=25?'Bottom 25% — rough':pctRank<=50?'Below median':pctRank<=75?'Above median':pctRank<=90?'Top 25% — favorable':'Top 10% — excellent';
+  const rankColor = pctRank<=25?'#FB923C':pctRank<=50?'#F59E0B':'#1D9E75';
+
+  // Walk wdSeries for lowest point
+  const series = r.wdSeries || [];
+  let lowestVal = Infinity, lowestAge = retireAge;
+  for(let i=1;i<series.length;i++){ if(series[i]<lowestVal){lowestVal=series[i];lowestAge=retireAge+i;} }
+  // Recovery after lowest — find highest point after the lowest
+  const lowestIdx = series.findIndex(v=>v===lowestVal);
+  let recoveredAge=null, recoveredVal=null;
+  let highAfterLow=0, highAfterLowAge=null;
+  for(let i=lowestIdx+1;i<series.length;i++){
+    if(series[i]>highAfterLow){highAfterLow=series[i];highAfterLowAge=retireAge+i;}
+    if(series[i]>lowestVal*2&&series[i]>portBase*0.25){recoveredAge=retireAge+i;recoveredVal=series[i];break;}
+  }
+
+  // Worst/best single-year blended return within this sequence
+  let worstRet=0,worstRetCalYr=yr,bestRet=-Infinity,bestRetCalYr=yr;
+  const si=yr-SY;
+  for(let y=0;y<withdrawYears&&(si+y)<SHILLER.length;y++){
+    const ret=blendReturn(si+y, stkPct||1, bndPct||0, cshPct||0);
+    if(ret<worstRet){worstRet=ret;worstRetCalYr=SY+si+y;}
+    if(ret>bestRet){bestRet=ret;bestRetCalYr=SY+si+y;}
+  }
+  // Label showing what mix the returns reflect
+  const s100=Math.round((stkPct||1)*100), b100=Math.round((bndPct||0)*100);
+  const mixLabel=b100>0?` · ${s100}/${b100}`:`· equity`;
+
+  const depAge = !survived ? retireAge+(r.dep||0) : null;
+  const extraRunway = survived&&series.length>0 ? Math.max(0,Math.floor(series[series.length-1]/(annualSpend*(1-taxRate)))) : null;
+  const ctx = HIST_CONTEXT[yr]||'';
+
+  document.getElementById('wdSeqExplorer').style.display='block';
+  document.getElementById('wdSeqExplorer').innerHTML=`
+    <div style="border-radius:13px;border:1px solid ${border};background:${bg};padding:18px 20px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:3px;">Sequence explorer · click another bar to switch</div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-family:var(--fd);font-size:28px;font-weight:700;color:${color};">Retired ${yr}</span>
+            <span style="font-size:11px;padding:2px 9px;border-radius:12px;background:${survived?'rgba(29,158,117,0.12)':'rgba(251,146,60,0.12)'};color:${color};">${survived?'Survived ✓':'Depleted'}</span>
+          </div>
+          ${ctx?`<div style="margin-top:8px;padding:8px 12px;border-left:3px solid ${color};background:rgba(255,255,255,0.03);border-radius:0 6px 6px 0;font-size:11px;color:var(--text);opacity:.85;line-height:1.55;max-width:520px;">${ctx}</div>`:''}
+        </div>
+        <button onclick="clearSeqExplorer()" style="background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-family:var(--fm);font-size:10px;padding:4px 9px;cursor:pointer;flex-shrink:0;margin-left:12px;">✕ close</button>
+      </div>
+
+      <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(0,0,0,0.2);border-radius:6px;padding:4px 10px;margin-bottom:14px;">
+        <div style="width:64px;height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden;">
+          <div style="height:100%;width:${pctRank}%;background:${rankColor};border-radius:2px;"></div>
+        </div>
+        <span style="font-size:10px;color:${rankColor};font-weight:500;">${rankLabel}</span>
+        <span style="font-size:10px;color:var(--muted);">· better than ${pctRank}% of all sequences</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
+        <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;">
+          <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:3px;">Started with</div>
+          <div style="font-size:13px;font-weight:600;">${fmtFull(portBase)}</div>
+        </div>
+        ${survived
+          ?`<div style="background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;">
+              <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:3px;">Final estate</div>
+              <div style="font-size:13px;font-weight:600;color:#1D9E75;">${fmtFull(r.val)}</div>
+            </div>
+            <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;">
+              <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:3px;">Extra runway</div>
+              <div style="font-size:13px;font-weight:600;color:#1D9E75;">~${extraRunway} more yrs</div>
+            </div>`
+          :`<div style="background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;">
+              <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:3px;">Depleted at age</div>
+              <div style="font-size:13px;font-weight:600;color:#FB923C;">${depAge}</div>
+            </div>
+            <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;">
+              <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:3px;">Lasted</div>
+              <div style="font-size:13px;font-weight:600;color:#FB923C;">${r.dep} of ${withdrawYears} yrs</div>
+            </div>`
+        }
+        <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;">
+          <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:3px;">${"Worst yr"+mixLabel}</div>
+          <div style="font-size:13px;font-weight:600;color:#FB923C;">${(worstRet*100).toFixed(1)}%</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:1px;">in ${worstRetCalYr}</div>
+        </div>
+      </div>
+
+      ${lowestVal<portBase?`
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;">
+          <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:3px;">Lowest balance</div>
+          <div style="font-size:13px;font-weight:600;color:#FB923C;">${fmtFull(lowestVal)}</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:1px;">age ${lowestAge}</div>
+        </div>
+        ${recoveredAge
+          ?`<div style="background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;">
+               <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:3px;">Recovered to</div>
+               <div style="font-size:13px;font-weight:600;color:#1D9E75;">${fmtFull(recoveredVal)}</div>
+               <div style="font-size:9px;color:var(--muted);margin-top:1px;">by age ${recoveredAge}</div>
+             </div>`
+          :`<div style="background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;">
+               <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:3px;">Best after low</div>
+               <div style="font-size:13px;font-weight:600;color:var(--muted);">${highAfterLowAge?fmtFull(highAfterLow):'—'}</div>
+               ${highAfterLowAge?`<div style="font-size:9px;color:var(--muted);margin-top:1px;">age ${highAfterLowAge}</div>`:''}
+             </div>`
+        }
+        <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;">
+          <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:3px;">${"Best yr"+mixLabel}</div>
+          <div style="font-size:13px;font-weight:600;color:#1D9E75;">${(bestRet*100).toFixed(1)}%</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:1px;">in ${bestRetCalYr}</div>
+        </div>
+      </div>`:`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;">
+          <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:3px;">${"Best yr"+mixLabel}</div>
+          <div style="font-size:13px;font-weight:600;color:#1D9E75;">${(bestRet*100).toFixed(1)}%</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:1px;">in ${bestRetCalYr}</div>
+        </div>
+        <div style="background:rgba(0,0,0,.25);border-radius:8px;padding:10px 12px;">
+          <div style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;opacity:.5;margin-bottom:3px;">${"Worst yr"+mixLabel}</div>
+          <div style="font-size:13px;font-weight:600;color:#FB923C;">${(worstRet*100).toFixed(1)}%</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:1px;">in ${worstRetCalYr}</div>
+        </div>
+      </div>`}
+    </div>`;
+}
+
+function clearSeqExplorer(){
+  _sorrSelectedIdx=-1;
+  document.getElementById('wdSeqExplorer').style.display='none';
+  document.getElementById('wdSeqExplorer').innerHTML='';
+  if(window._sorrChart){
+    // Reset bar colors
+    if(window._sorrChart.data.datasets[0]){
+      window._sorrChart.data.datasets[0].backgroundColor=window._sorrChart._sorrColors;
+      window._sorrChart.update('none');
+    }
+  }
+}
+
+// ── Init ──
+['startVal','contrib'].forEach(id => fmt(document.getElementById(id)));
+loadFromHash();
+if(!location.hash) upd();
+</script>
+<!-- Footer -->
+<div style="margin-top:48px;padding:20px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <span style="font-size:11px;color:var(--muted);">© 2026 Sequra · Not financial advice</span>
+  <div style="display:flex;align-items:center;gap:20px;">
+    <a href="https://ko-fi.com/sequra" target="_blank" style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#FF5E5B;text-decoration:none;background:rgba(255,94,91,0.08);border:1px solid rgba(255,94,91,0.2);border-radius:20px;padding:4px 12px;" onmouseover="this.style.background='rgba(255,94,91,0.14)'" onmouseout="this.style.background='rgba(255,94,91,0.08)'">☕ Buy me a coffee</a>
+    <a onclick="document.getElementById('aboutModal').style.display='flex'" style="font-size:11px;color:var(--muted);cursor:pointer;text-decoration:none;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">About</a>
+    <a onclick="document.getElementById('disclaimerModal').style.display='flex'" style="font-size:11px;color:var(--muted);cursor:pointer;text-decoration:none;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Disclaimer</a>
+    <a href="https://github.com" target="_blank" style="font-size:11px;color:var(--muted);text-decoration:none;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">GitHub</a>
+  </div>
+</div>
+
+<!-- About Modal -->
+<div id="aboutModal" onclick="if(event.target===this)this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 32px;max-width:520px;width:100%;position:relative;">
+    <button onclick="document.getElementById('aboutModal').style.display='none'" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:12px;padding:3px 8px;cursor:pointer;">✕</button>
+    <div style="font-family:var(--fd);font-size:22px;font-weight:700;color:#1D9E75;margin-bottom:4px;">Sequra</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:20px;letter-spacing:.04em;text-transform:uppercase;">Retirement Sequence Simulator</div>
+    <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:16px;">Sequra helps you understand retirement planning through the lens of historical market sequences. Rather than using fixed return assumptions, it runs your plan through every historical market sequence since 1871 — letting you see not just whether you survive, but how the ride feels.</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:20px;">Built for the FIRE community and anyone serious about understanding sequence-of-returns risk. Free, open source, no accounts required.</div>
+    <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:16px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px;">Data Sources</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.8;">
+        <div>📊 <strong style="color:#1D9E75;">Shiller US Equity Returns</strong> — real total returns 1871–2023</div>
+        <div>📈 <strong style="color:#3B9EFF;">Shiller 10-yr Treasury Returns</strong> — real bond returns 1871–2023</div>
+        <div>💵 <strong style="color:var(--muted);">T-bill Cash Rate</strong> — fixed 0.5% real (historical average)</div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;">Source: Robert Shiller, Yale University · <a href="http://www.econ.yale.edu/~shiller/data.htm" target="_blank" style="color:#1D9E75;text-decoration:none;">econ.yale.edu/~shiller/data.htm</a></div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:16px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px;">How it works</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.8;">
+        <div>· <strong style="color:var(--text);">Accumulation</strong> — projects portfolio growth using your return rate assumption</div>
+        <div>· <strong style="color:var(--text);">Withdrawal</strong> — stress-tests your retirement portfolio against 124 historical sequences</div>
+        <div>· <strong style="color:var(--text);">Sequence Explorer</strong> — click any bar in the SORR chart to see what actually happened in that era</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Disclaimer Modal -->
+<div id="disclaimerModal" onclick="if(event.target===this)this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 32px;max-width:480px;width:100%;position:relative;">
+    <button onclick="document.getElementById('disclaimerModal').style.display='none'" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:12px;padding:3px 8px;cursor:pointer;">✕</button>
+    <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:16px;">Disclaimer</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.8;display:flex;flex-direction:column;gap:12px;">
+      <div><strong style="color:var(--text);">Not financial advice.</strong> Sequra is an educational tool only. Nothing here constitutes financial, investment, tax, or retirement planning advice. Consult a qualified financial advisor before making any financial decisions.</div>
+      <div><strong style="color:var(--text);">Past performance.</strong> Historical market returns do not guarantee future results. The simulations shown are based on US equity and bond market data from 1871–2023 and may not reflect future market conditions.</div>
+      <div><strong style="color:var(--text);">Simplifications.</strong> The model uses flat real spending, simplified tax treatment, and fixed cash returns. It does not account for Social Security inflation adjustments, healthcare costs, variable spending, or tax-advantaged account structures beyond what is entered.</div>
+      <div><strong style="color:var(--text);">No data collection.</strong> Sequra runs entirely in your browser. No personal data is transmitted or stored anywhere.</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
