@@ -491,24 +491,6 @@ function upd() {
   // ── Guards ──
   if (!startAge || !retireAge || !planUntil || retireAge <= startAge) return;
 
-  // ── Derived ──
-  const xMin = startAge, xMax = planUntil;
-  const baseRate = baseRatePct / 100;
-  const rates    = SC.map(s => baseRate + s.offset / 100);
-  const effectiveContrib = State.currentTab === 'withdrawal' ? 0 : contrib;
-
-  // ── Rate card labels ──
-  SC.forEach((s, idx) => {
-    const r = rates[idx];
-    const portAtRetire = calcAt(r, effectiveContrib, startAge, contribUntil, startVal, retireAge);
-    const portAtEnd    = calcAt(r, 0, retireAge, retireAge, portAtRetire, planUntil);
-    document.getElementById('pct_' + s.key).textContent  = (r * 100).toFixed(1) + '%';
-    document.getElementById('lra_' + s.key).textContent  = 'age ' + retireAge;
-    document.getElementById('vra_' + s.key).textContent  = fmtM(portAtRetire);
-    document.getElementById('lea_' + s.key).textContent  = 'age ' + xMax;
-    document.getElementById('vea_' + s.key).textContent  = fmtM(portAtEnd);
-  });
-
   // ── spendDisp ──
   document.getElementById('spendDisp').innerHTML =
     `$${annualSpend.toLocaleString()} <span>/yr &nbsp;·&nbsp; $${Math.round(annualSpend / 12).toLocaleString()}/mo</span>`;
