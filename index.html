@@ -129,9 +129,8 @@ input[type=range]{width:100%;accent-color:var(--base);cursor:pointer;background:
 .hist-val{font-family:var(--fd);font-size:16px;font-weight:600;}
 </style>
 </head>
-<body>
 <!-- Mobile notice -->
-<div id="mobileNotice" style="position:fixed;inset:0;background:var(--bg);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;">
+<div style="display:none;" id="mobileNotice" style="position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;">
   <div style="font-size:32px;margin-bottom:16px;">🖥️</div>
   <div style="font-family:var(--fd);font-size:22px;font-weight:700;color:var(--text);margin-bottom:8px;">Best on desktop</div>
   <div style="font-size:13px;color:var(--muted);line-height:1.6;max-width:280px;">Sequra uses interactive charts and multi-panel layouts that work best on a larger screen. Open on your laptop or desktop for the full experience.</div>
@@ -280,7 +279,7 @@ input[type=range]{width:100%;accent-color:var(--base);cursor:pointer;background:
             <input type="checkbox" id="rebalToggle" onchange="upd()" style="accent-color:#1D9E75;width:14px;height:14px;cursor:pointer;">
             <span style="font-size:10px;color:var(--muted);">Rebalance annually</span>
           </div>
-          <button onclick="resetAlloc()" title="Reset to 100% stocks" style="font-size:13px;line-height:1;padding:3px 7px;border-radius:5px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);cursor:pointer;">↺</button>
+          <button onclick="resetAlloc()" title="Reset to 100% stocks" style="font-size:13px;line-height:1;padding:3px 7px;border-radius:5px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);cursor:pointer;" title="Reset to 100% stocks">↺</button>
         </div>
       </div>
       <div class="divider"></div>
@@ -589,7 +588,7 @@ document.getElementById('rateRow').innerHTML = SC.map(s => `
 
 // ── One-time events ──
 function addEvent(){
-  const label  = cleanLabel(document.getElementById('evtLabel').value);
+  const label  = document.getElementById('evtLabel').value.trim() || 'Event';
   const age    = parseInt(document.getElementById('evtAge').value);
   const amount = pm(document.getElementById('evtAmt').value);
   if(!age || !amount) return;
@@ -602,34 +601,14 @@ function addEvent(){
 }
 function removeEvent(i){ oneTimeEvents.splice(i,1); renderEvents(); upd(); }
 function renderEvents(){
-  const list=document.getElementById('eventList');
-  list.textContent='';
-  oneTimeEvents.forEach((event,i)=>{
-    const e=cleanEvent(event);
-    oneTimeEvents[i]=e;
-    const item=document.createElement('div');
-    item.className='event-item';
-    const del=document.createElement('button');
-    del.className='event-del';
-    del.type='button';
-    del.textContent='✕';
-    del.addEventListener('click',()=>removeEvent(i));
-    const label=document.createElement('span');
-    label.style.color='var(--warn)';
-    label.style.fontSize='11px';
-    label.textContent=e.label;
-    const age=document.createElement('span');
-    age.style.color='var(--muted)';
-    age.style.fontSize='10px';
-    age.textContent='age '+e.age;
-    const amount=document.createElement('span');
-    amount.style.color='var(--text)';
-    amount.style.fontSize='11px';
-    amount.style.marginLeft='auto';
-    amount.textContent=(e.amount>0?'-':'+')+fmtM(Math.abs(e.amount));
-    item.append(del,label,age,amount);
-    list.appendChild(item);
-  });
+  document.getElementById('eventList').innerHTML = oneTimeEvents.map((e,i) =>
+    `<div class="event-item">
+      <button class="event-del" onclick="removeEvent(${i})">✕</button>
+      <span style="color:var(--warn);font-size:11px;">${e.label}</span>
+      <span style="color:var(--muted);font-size:10px;">age ${e.age}</span>
+      <span style="color:var(--text);font-size:11px;margin-left:auto;">${e.amount>0?'-':'+'}${fmtM(Math.abs(e.amount))}</span>
+    </div>`
+  ).join('');
 }
 function fmtEvt(el){ const v=pm(el.value); if(v>0) el.value='$'+v.toLocaleString('en-US',{maximumFractionDigits:0}); }
 
@@ -639,16 +618,6 @@ function fmt(el){ const v=pm(el.value); if(v>0) el.value='$'+v.toLocaleString('e
 function fmtM(v){ if(v>=1e6) return '$'+(v/1e6).toFixed(2)+'M'; if(v>=1000) return '$'+(v/1000).toFixed(0)+'k'; return '$'+Math.round(v).toLocaleString(); }
 function fmtMs(v){ return v>=1e6?'$'+(v/1e6).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'k':'$'+Math.round(v).toLocaleString(); }
 function fmtFull(v){ return '$'+Math.round(v).toLocaleString(); } // for sequence explorer detail
-function cleanLabel(value){
-  return String(value || 'Event').replace(/\s+/g,' ').trim().slice(0,60) || 'Event';
-}
-function cleanEvent(event){
-  return {
-    label: cleanLabel(event.label),
-    age: Math.max(0, Math.min(120, parseInt(event.age,10) || 0)),
-    amount: Number.isFinite(Number(event.amount)) ? Number(event.amount) : 0
-  };
-}
 function randn(){ // Box-Muller normal random
   let u=0,v=0;
   while(u===0) u=Math.random();
@@ -738,7 +707,7 @@ function loadFromHash(){
       else el.value=state[id];
     });
     if(state._events&&Array.isArray(state._events)){
-      oneTimeEvents=state._events.map(cleanEvent).filter(e=>e.age>0&&e.amount!==0).slice(0,20);
+      oneTimeEvents=state._events;
       renderEvents();
     }
     if(state._targetManual!==undefined) _targetManual=state._targetManual;
