@@ -126,39 +126,74 @@ function fmt(el) {
 
 // ── Permalink ──
 
-const SHARE_KEYS = {
-  sv: 'startVal', co: 'contrib', br: 'baseRate', ti: 'targetInput',
-  an: 'ageNow',   ac: 'ageCoast', ar: 'ageRetire', ae: 'ageEnd',
-  mc: 'mcToggle', ft: 'feesToggle', fs: 'feesSlider',
-  wo: 'wdPortOverride', as: 'allocS', ab: 'allocB', acl: 'allocC',
-  rb: 'rebalToggle', sp: 'spendSlider', tr: 'taxRate',
-  ss: 'ssToggle', si: 'ssIncome', sa: 'ssAge',
-};
+// ── Permalink — compact fixed-order array encoding ──
+// Values stored as raw numbers in a fixed position array.
+// No key names, no currency symbols/commas → much shorter URLs.
+// Order must never change (append new fields at end for backwards compat).
+//
+// Positions: [startVal, contrib, baseRate, ageNow, ageCoast, ageRetire, ageEnd,
+//             spendSlider, taxRate, allocS, allocB, allocC, feesSlider,
+//             ssIncome, ssAge, tab(0=accum/1=wd), mcToggle, feesToggle,
+//             rebalToggle, ssToggle, targetManual, wdPortOverride]
+// One-time events appended as trailing array.
 
-// Defaults — values that don't need to be serialized
-const SHARE_DEFAULTS = {
-  startVal: '$1,000,000', contrib: '$25,000', baseRate: '7',
-  ageNow: '38', ageCoast: '55', ageRetire: '55', ageEnd: '85',
-  mcToggle: false, feesToggle: false, feesSlider: '0.1',
-  wdPortOverride: '', allocS: '100', allocB: '0', allocC: '0',
-  rebalToggle: false, spendSlider: '80000', taxRate: '0',
-  ssToggle: false, ssIncome: '', ssAge: '67', targetInput: '',
-};
+const SHARE_FIELDS = [
+  { id: 'startVal',      read: el => pm(el.value),                  write: (el, v) => { el.value = v; fmt(el); } },
+  { id: 'contrib',       read: el => pm(el.value),                  write: (el, v) => { el.value = v; fmt(el); } },
+  { id: 'baseRate',      read: el => parseFloat(el.value),          write: (el, v) => { el.value = v; } },
+  { id: 'ageNow',        read: el => parseInt(el.value),            write: (el, v) => { el.value = v; } },
+  { id: 'ageCoast',      read: el => parseInt(el.value),            write: (el, v) => { el.value = v; } },
+  { id: 'ageRetire',     read: el => parseInt(el.value),            write: (el, v) => { el.value = v; } },
+  { id: 'ageEnd',        read: el => parseInt(el.value),            write: (el, v) => { el.value = v; } },
+  { id: 'spendSlider',   read: el => parseInt(el.value),            write: (el, v) => { el.value = v; } },
+  { id: 'taxRate',       read: el => parseInt(el.value),            write: (el, v) => { el.value = v; } },
+  { id: 'allocS',        read: el => parseInt(el.value),            write: (el, v) => { el.value = v; } },
+  { id: 'allocB',        read: el => parseInt(el.value),            write: (el, v) => { el.value = v; } },
+  { id: 'allocC',        read: el => parseInt(el.value),            write: (el, v) => { el.value = v; } },
+  { id: 'feesSlider',    read: el => parseFloat(el.value),          write: (el, v) => { el.value = v; } },
+  { id: 'ssIncome',      read: el => pm(el.value),                  write: (el, v) => { el.value = v; if(v) fmt(el); } },
+  { id: 'ssAge',         read: el => parseInt(el.value),            write: (el, v) => { el.value = v; } },
+  { id: 'wdPortOverride',read: el => pm(el.value),                  write: (el, v) => { el.value = v; if(v) fmt(el); } },
+];
+
+// Boolean flags stored as a single bitmask (position 16)
+// bit 0 = currentTab (0=accum, 1=wd)
+// bit 1 = mcToggle
+// bit 2 = feesToggle
+// bit 3 = rebalToggle
+// bit 4 = ssToggle
+// bit 5 = targetManual
+
+const SHARE_DEFAULTS_ARR = [1000000,25000,7,38,55,55,85,80000,0,100,0,0,0.1,0,67,0];
 
 function shareScenario() {
-  // Build compact state — only non-default values
-  const compact = {};
-  Object.entries(SHARE_KEYS).forEach(([short, id]) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const val = el.type === 'checkbox' ? el.checked : el.value;
-    if (val !== SHARE_DEFAULTS[id]) compact[short] = val;
+  // Build values array
+  const vals = SHARE_FIELDS.map(f => {
+    const el = document.getElementById(f.id);
+    return el ? f.read(el) : 0;
   });
-  compact.tb = State.currentTab;
-  if (State.oneTimeEvents.length) compact.ev = State.oneTimeEvents;
-  if (State.targetManual) compact.tm = true;
 
-  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(compact))));
+  // Build bitmask
+  let flags = 0;
+  if (State.currentTab === 'withdrawal')                          flags |= 1;
+  if (document.getElementById('mcToggle').checked)               flags |= 2;
+  if (document.getElementById('feesToggle').checked)             flags |= 4;
+  if (document.getElementById('rebalToggle').checked)            flags |= 8;
+  if (document.getElementById('ssToggle').checked)               flags |= 16;
+  if (State.targetManual)                                        flags |= 32;
+
+  // Drop trailing defaults to keep array short
+  let arr = [...vals, flags];
+  while (arr.length > 1 && arr[arr.length - 1] === (SHARE_DEFAULTS_ARR[arr.length - 1] ?? 0)) {
+    arr.pop();
+  }
+
+  // Append one-time events if any
+  const payload = State.oneTimeEvents.length
+    ? { v: arr, e: State.oneTimeEvents.map(e => [e.age, e.amount, e.label]) }
+    : arr;
+
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   const url = location.href.split('#')[0] + '#' + encoded;
 
   navigator.clipboard.writeText(url).then(() => {
@@ -173,28 +208,68 @@ function loadFromHash() {
   const hash = location.hash.slice(1);
   if (!hash) return;
   try {
-    const compact = JSON.parse(decodeURIComponent(escape(atob(hash))));
-    Object.entries(SHARE_KEYS).forEach(([short, id]) => {
-      if (compact[short] === undefined) return;
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (el.type === 'checkbox') el.checked = compact[short];
-      else el.value = compact[short];
-    });
-    if (compact.ev && Array.isArray(compact.ev)) {
-      State.oneTimeEvents = compact.ev;
-      renderEvents();
+    const raw = JSON.parse(decodeURIComponent(escape(atob(hash))));
+
+    // Support both new compact array format and legacy key-value format
+    let arr, events = [];
+    if (Array.isArray(raw)) {
+      arr = raw;
+    } else if (raw.v) {
+      arr = raw.v;
+      events = (raw.e || []).map(([age, amount, label]) => ({ age, amount, label }));
+    } else {
+      // Legacy format — fall through to old key restore (backwards compat)
+      _loadLegacyHash(raw); return;
     }
-    if (compact.tm) State.targetManual = true;
-    // Re-format currency inputs
-    ['startVal', 'contrib', 'wdPortOverride', 'ssIncome'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el && el.value) fmt(el);
+
+    // Restore field values
+    SHARE_FIELDS.forEach((f, i) => {
+      if (arr[i] === undefined) return;
+      const el = document.getElementById(f.id);
+      if (el) f.write(el, arr[i]);
     });
+
+    // Restore bitmask flags
+    const flags = arr[SHARE_FIELDS.length] || 0;
+    document.getElementById('mcToggle').checked      = !!(flags & 2);
+    document.getElementById('feesToggle').checked    = !!(flags & 4);
+    document.getElementById('rebalToggle').checked   = !!(flags & 8);
+    document.getElementById('ssToggle').checked      = !!(flags & 16);
+    State.targetManual                               = !!(flags & 32);
+
+    // Restore events
+    if (events.length) { State.oneTimeEvents = events; renderEvents(); }
+
     updAlloc();
-    if (compact.tb) switchTab(compact.tb);
+    const isWd = !!(flags & 1);
+    if (isWd) switchTab('withdrawal');
     else upd();
+
   } catch (e) { /* invalid hash — ignore */ }
+}
+
+// Backwards compatibility with old key-value hash format
+function _loadLegacyHash(compact) {
+  const legacyMap = {
+    sv:'startVal',co:'contrib',br:'baseRate',ti:'targetInput',an:'ageNow',
+    ac:'ageCoast',ar:'ageRetire',ae:'ageEnd',mc:'mcToggle',ft:'feesToggle',
+    fs:'feesSlider',wo:'wdPortOverride',as:'allocS',ab:'allocB',acl:'allocC',
+    rb:'rebalToggle',sp:'spendSlider',tr:'taxRate',ss:'ssToggle',si:'ssIncome',sa:'ssAge',
+  };
+  Object.entries(legacyMap).forEach(([short, id]) => {
+    if (compact[short] === undefined) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.type === 'checkbox') el.checked = compact[short];
+    else el.value = compact[short];
+  });
+  if (compact.ev) { State.oneTimeEvents = compact.ev; renderEvents(); }
+  if (compact.tm) State.targetManual = true;
+  ['startVal','contrib','wdPortOverride','ssIncome'].forEach(id => {
+    const el = document.getElementById(id); if (el && el.value) fmt(el);
+  });
+  updAlloc();
+  if (compact.tb) switchTab(compact.tb); else upd();
 }
 
 // ── Goal bar (25× spend target vs projected) ──
